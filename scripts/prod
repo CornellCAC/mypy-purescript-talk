@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+GCC=$(npm bin)/google-closure-compiler
+
+preGccBuildSteps () {
+  rimraf prod dist && mkdir prod && ln -sfn ../css prod/css && \
+    spago build && spago bundle-app --main Main --to prod/index.prod.js && \
+    cp static/index.* prod/
+}
+
+# FIXME: parcel's --no-minify with GCC currently creates a runtime error
+# FIXME with e.identity; either minifier alone will work.
+# FIXME (introduced in purs 0.13.3, but doesn't affect metajelo-web)
+preGccBuildSteps || { echo 'preGccBuildSteps failed' ; exit 1; }
+"$GCC" --js prod/index.prod.js --js_output_file prod/index.opt.js && \
+  parcel build --public-url ./ prod/index.html --no-minify
+

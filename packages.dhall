@@ -123,6 +123,15 @@ let upstream =
 
 let overrides = {=}
 
-let additions = {=}
-
+let additions =
+  { concur-spectacle =
+       { dependencies =
+           [ "concur-react"
+           ]
+       , repo =
+           "https://github.com/bbarker/purescript-concur-spectacle.git"
+       , version =
+           "5575c5e751dbd360e9eddfaa979ec3f14274f875"
+       }
+  }
 in  upstream // overrides // additions

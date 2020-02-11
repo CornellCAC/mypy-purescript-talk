@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+mkdir -p css
+git clone --depth 1 https://github.com/labordynamicsinstitute/metajelo-ui-css-classes.git
+cp -R metajelo-ui-css-classes/uicss/* css
