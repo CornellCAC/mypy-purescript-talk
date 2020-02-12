@@ -16,3 +16,4 @@ cp prod/index.prod.js prod/index.opt.js && \
   parcel build --public-url ./ prod/index.html --no-minify
 #  parcel build --public-url ./ prod/index.html
 
+cp -R static/images dist/

@@ -15,3 +15,5 @@ preGccBuildSteps || { echo 'preGccBuildSteps failed' ; exit 1; }
 "$GCC" --js prod/index.prod.js --js_output_file prod/index.opt.js && \
   parcel build --public-url ./ prod/index.html --no-minify
 
+cp -R static/images dist/
+
