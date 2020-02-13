@@ -2,7 +2,7 @@ module Main where
 
 import Prelude hiding (div)
 
-import Colors (blue, red, stormy, white, darkBg)
+import Colors (black, blue, white)
 import Components (link)
 import Concur.Core (Widget)
 import Concur.Core.Types (display)
@@ -72,11 +72,14 @@ codePanePy src =
     , source src
     ] []
 
+headerHeight :: String
+headerHeight = "100px"
+
 cornellLogo :: forall a. Widget HTML a
 cornellLogo = D.img [
     P.src "images/cornell_logo_simple_white.svg"
   , P.alt "Cornell University Logo"
-  , P.height "100px"
+  , P.height headerHeight
   , P.style {"padding": "10px"}
   ]
 
@@ -88,6 +91,7 @@ cacHeader = div [P.style {
   , "position": "fixed"
   , "top": "0px"
   , "left": "0px"
+  , "height" : headerHeight
   , "width": "100%"
   , "display": "block"
   }] [
@@ -112,15 +116,15 @@ disassociate w = display [renderComponent w]
 
 slides :: forall a. Array (Widget HTML a)
 slides =
-  [ cacSlide [ h 1 "Concur", h 5 "scalable functional UIs" ]
-  , cacSlide [ h 3 "Functional is Scalable"]
-  ] <>
-  [ cacSlide [ h 3 "What is Functional?", fpList]
-  , cacSlide [ h 3 "Don't lie with null", codePanePy pyOptionStr]
-  ] <>
-  [ cacSlide [ h 3 "Monadic Event Handling" ]
-  ] <>
-  [ cacSlide [link "http://github.com/ajnsit/purescript-concur" "Go to Concur Purescript repository page"]
+  [ cacSlide [
+      h 2 "Programming with Types and Functions"
+    , h 4 "using Python and PureScript"
+    , D.br', D.br', D.text "Brandon Barker"
+    , D.br', D.text "brandon.barker@cornell.edu" ]
+  , cacSlide [ h 4 "Safer Software for Science"]
+  , cacSlide [ h 4 "What is Functional Programming?", fpList, pureVsImpurePy]
+  , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
+  , cacSlide [ closingSlideTable ]
   ]
 
 
@@ -130,16 +134,71 @@ fpList = listAppear [
   , "Functions do not side effect by default"
   ]
 
+
+
+pyPure :: String
+pyPure = """yy = 1
+zz = 2
+def foo(xx: int) -> int:
+    return xx ++ yy ++ (zz + 1)
+
+foo(0)
+print(zz)
+"""
+
+
+pyImpure :: String
+pyImpure = """yy = 1
+zz = 2
+def foo(xx: int) -> int:
+    zz = zz + 1
+    return xx ++ yy ++ zz
+
+foo(0)
+print(zz)
+"""
+
+pureVsImpurePy :: forall a. Widget HTML a
+pureVsImpurePy = D.div [] [
+    appear_' $ D.div [] [h 6 "Pure", codePanePy pyPure]
+  , appear_' $ D.div [] [h 6 "Not Pure", codePanePy pyImpure]
+]
+
+closingSlideTable :: forall a. Widget HTML a
+closingSlideTable= D.table [P.style {
+    "fontSize" : "1.4rem"
+  , "border"   : "1px double " <> grey
+  }] [
+    D.tr [] [
+      td $ D.text "CAC services"
+    , td $ selfHref $ "https://www.cac.cornell.edu"
+    ]
+  , D.tr [] [
+      td $ D.text "These slides (with runnable examples)"
+    , td $ selfHref $ "https://www.cac.cornell.edu/barker/mypy-purs-talk"
+    ]
+]
+  where
+    tdThProps = [P.style{
+        "text-align" : "left"
+      , "border"     : "1px solid " <> grey
+      }]
+    td = D.td_ tdThProps
+
+
+selfHref :: forall a. String -> Widget HTML a
+selfHref url = link url url
+
 listAppear :: forall a. Array String -> Widget HTML a
-listAppear items = D.ul' $
-   ((appear []) <<< pure <<< D.li' <<< pure <<< D.text) <$> items
+listAppear items = D.ul [P.style{"text-align" : "left"}] $
+   appear_' <<< D.li_ [] <<< D.text <$> items
 
 -- Theming
 slideTheme :: forall a. ReactProps a
 slideTheme = theme
   { colors:
     { primary: grey
-    , secondary: grey
+    , secondary: black
     , tertiary: blue
     , quartenary: grey
     }
@@ -150,6 +209,9 @@ slideTheme = theme
     }
   }
 
+
+appear_' :: forall a. Widget HTML a -> Widget HTML a
+appear_' = (appear []) <<< pure
 
 grey :: String
 grey = "#808080"
