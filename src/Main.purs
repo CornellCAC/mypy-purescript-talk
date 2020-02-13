@@ -15,7 +15,15 @@ import Concur.React.Run (runWidgetInDom)
 import Concur.Spectacle (appear, codePane, deck, heading, slide)
 import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, source, theme, transition, transitionDuration)
 import Data.Array ((:))
+import Data.Maybe (Maybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
+import Effect.Console (log)
+import Web.DOM (Element) as DOM
+import Web.DOM.NonElementParentNode (getElementById) as DOM
+import Web.HTML (window) as DOM
+import Web.HTML.HTMLDocument (toNonElementParentNode) as DOM
+import Web.HTML.HTMLTextAreaElement as TAE
+import Web.HTML.Window (document) as DOM
 import Effect (Effect)
 
 main :: Effect Unit
@@ -64,6 +72,17 @@ codePanePy src =
     , lang "python"
     , source src
     ] []
+
+{- codePanePyRun :: forall a. String -> String -> Widget HTML a
+codePanePyRun src =
+  codePane
+    [ P.style { "fontSize": "1.4rem" }
+    , lang "python"
+    , source src
+    , P.id shaId
+    ] []
+  where
+    shaId = src -}
 
 headerHeight :: String
 headerHeight = "100px"
@@ -236,3 +255,36 @@ else:
 
 slidesUrl :: String
 slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
+
+
+docElemById :: String -> Effect (Maybe DOM.Element)
+docElemById id = do
+  win <- DOM.window
+  doc <- DOM.document win
+  let dpNode = DOM.toNonElementParentNode doc
+  DOM.getElementById id dpNode
+
+-- TODO: consider showing these as exampels in the presentation:
+textOfElem :: DOM.Element -> Effect String
+textOfElem ele = do
+  let textAreaMay = TAE.fromElement ele
+  maybe emptyElem TAE.value textAreaMay
+  where
+    emptyElem = do
+      log "in textOfElem: coudldn't convert to text area"
+      pure ""
+
+textAtId :: String -> Effect String
+textAtId id = do
+  eleMay <- docElemById id
+  maybe emptyElem textOfElem eleMay
+  where
+    emptyElem = do
+      log "in textAtId: coudldn't find element by id"
+      pure ""
+
+{- getShaPfx :: Int -> String -> String
+getShaPfx len inStr = take len $ Crypto.toString digest
+  where
+    digest = Crypto.hash Crypto.SHA256 inStr
+ -}
