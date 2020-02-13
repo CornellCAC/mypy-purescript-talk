@@ -146,7 +146,7 @@ followAlongSlide = cacSlide [
   , listAppear [
       D.span' [D.text "Follow along at ", D.br', selfHref slidesUrl]
     , D.text "Edit and run live examples from the browser "]
-    , D.text "Or, try it later"
+  , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later"]
   ]
 
 fpList :: forall a. Widget HTML a
