@@ -12,9 +12,9 @@ import Concur.React.DOM as D
 import Concur.React.Props (ReactProps)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
-import Concur.Spectacle (codePane, deck, heading, slide)
-import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, theme, transition, transitionDuration)
-import Data.Array (concat, (:))
+import Concur.Spectacle (appear, codePane, deck, heading, slide)
+import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, source, theme, transition, transitionDuration)
+import Data.Array ((:))
 import Data.Time.Duration (Milliseconds(Milliseconds))
 import Effect (Effect)
 
@@ -54,6 +54,23 @@ codeHeading title = heading [ P.style { "position": "relative"
                                       }
                             , P.size 1
                             ] [D.text title]
+
+
+codePaneHs :: forall a. String -> Widget HTML a
+codePaneHs src =
+  codePane
+    [ P.style { "fontSize": "1.4rem" }
+    , lang "haskell"
+    , source src
+    ] []
+
+codePanePy :: forall a. String -> Widget HTML a
+codePanePy src =
+  codePane
+    [ P.style { "fontSize": "1.4rem" }
+    , lang "python"
+    , source src
+    ] []
 
 cornellLogo :: forall a. Widget HTML a
 cornellLogo = D.img [
@@ -96,15 +113,26 @@ disassociate w = display [renderComponent w]
 slides :: forall a. Array (Widget HTML a)
 slides =
   [ cacSlide [ h 1 "Concur", h 5 "scalable functional UIs" ]
-  , cacSlide [ h 3 "Scalable?" ]
+  , cacSlide [ h 3 "Functional is Scalable"]
   ] <>
-  [ cacSlide [ h 3 "Functional?" ]
-  , cacSlide [ h 3 "DSL for Functional Views" ]
+  [ cacSlide [ h 3 "What is Functional?", fpList]
+  , cacSlide [ h 3 "Don't lie with null", codePanePy pyOptionStr]
   ] <>
   [ cacSlide [ h 3 "Monadic Event Handling" ]
   ] <>
   [ cacSlide [link "http://github.com/ajnsit/purescript-concur" "Go to Concur Purescript repository page"]
   ]
+
+
+fpList :: forall a. Widget HTML a
+fpList = listAppear [
+    "Side effects are modeled by types"
+  , "Functions do not side effect by default"
+  ]
+
+listAppear :: forall a. Array String -> Widget HTML a
+listAppear items = D.ul' $
+   ((appear []) <<< pure <<< D.li' <<< pure <<< D.text) <$> items
 
 -- Theming
 slideTheme :: forall a. ReactProps a
@@ -128,3 +156,11 @@ grey = "#808080"
 
 cornellRed :: String
 cornellRed = "#c90022"
+
+
+pyOptionStr :: String
+pyOptionStr = """if listing_path is not None:
+    bibtex_path = get_dblp_bibtex_path(listing_path)
+else:
+    return None
+"""
