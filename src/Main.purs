@@ -26,14 +26,6 @@ main = runWidgetInDom "root" do
        , transition [ Zoom, Slide ]
        , transitionDuration (Milliseconds 1000.0)
        ] slides
-{-   where
-    rootStyle = P.style{
-        "position" : "relative"
-      , "top" : "0px"
-      , "left" : "0px"
-      , "width" : "100%"
-      , "height" : "100%"
-      } -}
 
 assets :: {}
 assets = {}
@@ -42,19 +34,20 @@ h :: forall a. Int -> String -> Widget HTML a
 h size txt = heading [P.style {"fontWeight": "lighter"}, P.size size, textColor grey] [D.text txt]
 
 codeHeading :: forall a. String -> Widget HTML a
-codeHeading title = heading [ P.style { "position": "relative"
-                                      , "left": "50%"
-                                      , "top": "0px"
-                                      , "transform": "translate(-50%)"
-                                      , "padding": "20px 40px"
-                                      , "border": "10px solid hotpink"
-                                      , "font-size": "2.5em"
-                                      , "color": "white"
-                                      , "white-space": "nowrap"
-                                      }
-                            , P.size 1
-                            ] [D.text title]
-
+codeHeading title = heading [
+  P.style {
+      "position": "relative"
+    , "left": "50%"
+    , "top": "0px"
+    , "transform": "translate(-50%)"
+    , "padding": "20px 40px"
+    , "border": "10px solid hotpink"
+    , "font-size": "2.5em"
+    , "color": "white"
+    , "white-space": "nowrap"
+    }
+  , P.size 1
+  ] [D.text title]
 
 codePaneHs :: forall a. String -> Widget HTML a
 codePaneHs src =
@@ -121,20 +114,27 @@ slides =
     , h 4 "using Python and PureScript"
     , D.br', D.br', D.text "Brandon Barker"
     , D.br', D.text "brandon.barker@cornell.edu" ]
+  , followAlongSlide
   , cacSlide [ h 4 "Safer Software for Science"]
   , cacSlide [ h 4 "What is Functional Programming?", fpList, pureVsImpurePy]
   , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
   , cacSlide [ closingSlideTable ]
   ]
 
+followAlongSlide :: forall a. Widget HTML a
+followAlongSlide = cacSlide [
+    h 2 "Follow Along"
+  , listAppear [
+      D.span' [D.text "Follow along at ", D.br', selfHref slidesUrl]
+    , D.text "Edit and run live examples from the browser "]
+    , D.text "Or, try it later"
+  ]
 
 fpList :: forall a. Widget HTML a
-fpList = listAppear [
+fpList = listAppearTxt [
     "Side effects are modeled by types"
   , "Functions do not side effect by default"
   ]
-
-
 
 pyPure :: String
 pyPure = """yy = 1
@@ -175,9 +175,13 @@ closingSlideTable= D.table [P.style {
     ]
   , D.tr [] [
       td $ D.text "These slides (with runnable examples)"
-    , td $ selfHref $ "https://www.cac.cornell.edu/barker/mypy-purs-talk"
+    , td $ selfHref $ slidesUrl
     ]
-]
+  , D.tr [] [
+      td $ D.text "Slide source"
+    , td $ selfHref $ "https://github.com/CornellCAC/mypy-purescript-talk"
+    ]
+  ]
   where
     tdThProps = [P.style{
         "text-align" : "left"
@@ -189,9 +193,12 @@ closingSlideTable= D.table [P.style {
 selfHref :: forall a. String -> Widget HTML a
 selfHref url = link url url
 
-listAppear :: forall a. Array String -> Widget HTML a
+listAppear :: forall a. Array (Widget HTML a) -> Widget HTML a
 listAppear items = D.ul [P.style{"text-align" : "left"}] $
-   appear_' <<< D.li_ [] <<< D.text <$> items
+   appear_' <<< D.li_ [] <$> items
+
+listAppearTxt :: forall a. Array String -> Widget HTML a
+listAppearTxt = listAppear <<< (map D.text)
 
 -- Theming
 slideTheme :: forall a. ReactProps a
@@ -226,3 +233,6 @@ pyOptionStr = """if listing_path is not None:
 else:
     return None
 """
+
+slidesUrl :: String
+slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
