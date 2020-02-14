@@ -5,6 +5,7 @@ import Prelude hiding (div)
 import Colors (black, blue, white)
 import Components (link)
 import Concur.Core (Widget)
+import Concur.Core.FRP (Signal, dyn, step)
 import Concur.Core.Types (display)
 import Concur.React (HTML, renderComponent)
 import Concur.React.DOM (div)
@@ -17,6 +18,7 @@ import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, prel
 import Data.Array ((:))
 import Data.Maybe (Maybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
+import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Web.DOM (Element) as DOM
 import Web.DOM.NonElementParentNode (getElementById) as DOM
@@ -73,16 +75,22 @@ codePanePy src =
     , source src
     ] []
 
-{- codePanePyRun :: forall a. String -> String -> Widget HTML a
-codePanePyRun src =
+codePanePyRun :: forall a. String -> String -> Widget HTML a
+codePanePyRun codeId src = D.div_ [P._id codeId] $
   codePane
     [ P.style { "fontSize": "1.4rem" }
     , lang "python"
     , source src
-    , P.id shaId
     ] []
-  where
-    shaId = src -}
+
+runCodePane :: String -> Signal HTML String
+runCodePane codeId = go "" where
+  go :: String -> Signal HTML String
+  go output = step output do
+    resultEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
+    result <- liftEffect resultEf
+    liftEffect $ log result
+    pure (go result)
 
 headerHeight :: String
 headerHeight = "100px"
@@ -145,7 +153,9 @@ followAlongSlide = cacSlide [
     h 2 "Follow Along"
   , listAppear [
       D.span' [D.text "Follow along at ", D.br', selfHref slidesUrl]
-    , D.text "Edit and run live examples from the browser "]
+    , D.text "Edit and run live examples from the browser "
+    , D.text "To reset examples: reload page"
+    ]
   , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later"]
   ]
 
@@ -165,6 +175,8 @@ foo(0)
 print(zz)
 """
 
+pyPureId :: String
+pyPureId = "pyPure"
 
 pyImpure :: String
 pyImpure = """yy = 1
@@ -177,10 +189,21 @@ foo(0)
 print(zz)
 """
 
+pyImpureId :: String
+pyImpureId = "pyImpure"
+
 pureVsImpurePy :: forall a. Widget HTML a
 pureVsImpurePy = D.div [] [
-    appear_' $ D.div [] [h 6 "Pure", codePanePy pyPure]
-  , appear_' $ D.div [] [h 6 "Not Pure", codePanePy pyImpure]
+    appear_' $ D.div [] [
+        h 6 "Pure"
+      , codePanePyRun pyPureId pyPure
+      , dyn $ runCodePane pyPureId
+      ]
+  , appear_' $ D.div [] [
+      h 6 "Not Pure"
+    , codePanePyRun pyImpureId pyImpure
+    , dyn $ runCodePane pyImpureId
+    ]
 ]
 
 closingSlideTable :: forall a. Widget HTML a
@@ -280,7 +303,7 @@ textAtId id = do
   maybe emptyElem textOfElem eleMay
   where
     emptyElem = do
-      log "in textAtId: coudldn't find element by id"
+      log $ "in textAtId: coudldn't find element by id: " <> id
       pure ""
 
 {- getShaPfx :: Int -> String -> String
