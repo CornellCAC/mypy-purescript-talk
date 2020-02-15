@@ -144,6 +144,7 @@ slides =
   , followAlongSlide
   , cacSlide [ h 4 "Safer Software for Science"]
   , cacSlide [ h 4 "What is Functional Programming?", fpList, pureVsImpurePy]
+  , cacSlide [ h 4 "Safer Software for Science and FP", scienceFpList]
   , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
   , cacSlide [ closingSlideTable ]
   ]
@@ -165,11 +166,17 @@ fpList = listAppearTxt [
   , "Functions do not side effect by default"
   ]
 
+scienceFpList :: forall a. Widget HTML a
+scienceFpList = listAppearTxt [
+    "Scientists try to understand complex processes - not create them!"
+  ]
+
 pyPure :: String
 pyPure = """yy = 1
 zz = 2
 def foo(xx: int) -> int:
     return xx ++ yy ++ (zz + 1)
+
 
 foo(0)
 print(zz)
@@ -193,18 +200,22 @@ pyImpureId :: String
 pyImpureId = "pyImpure"
 
 pureVsImpurePy :: forall a. Widget HTML a
-pureVsImpurePy = D.div [] [
-    appear_' $ D.div [] [
+pureVsImpurePy = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "row"
+  }] [
+    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
         h 6 "Pure"
       , codePanePyRun pyPureId pyPure
       , dyn $ runCodePane pyPureId
       ]
-  , appear_' $ D.div [] [
+  , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       h 6 "Not Pure"
     , codePanePyRun pyImpureId pyImpure
     , dyn $ runCodePane pyImpureId
     ]
-]
+  ]
+
 
 closingSlideTable :: forall a. Widget HTML a
 closingSlideTable= D.table [P.style {
@@ -268,6 +279,11 @@ grey = "#808080"
 cornellRed :: String
 cornellRed = "#c90022"
 
+pad :: forall a. Int -> ReactProps a
+pad px = P.style {"padding" : (show px) <> "px"}
+
+flexGrow :: forall a. Int -> ReactProps a
+flexGrow fg = P.style {"flex-grow" : show fg}
 
 pyOptionStr :: String
 pyOptionStr = """if listing_path is not None:
