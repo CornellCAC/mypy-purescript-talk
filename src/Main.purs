@@ -21,8 +21,10 @@ import Data.Time.Duration (Milliseconds(Milliseconds))
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Web.DOM (Element) as DOM
+import Web.DOM.Element as ELE
 import Web.DOM.NonElementParentNode (getElementById) as DOM
 import Web.HTML (window) as DOM
+import Web.DOM.HTMLCollection as HTMLCollection
 import Web.HTML.HTMLDocument (toNonElementParentNode) as DOM
 import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
@@ -303,10 +305,18 @@ docElemById id = do
   let dpNode = DOM.toNonElementParentNode doc
   DOM.getElementById id dpNode
 
+-- | Retrieves the first text area child of the given element,
+-- | if it exists
+textAreaChild :: DOM.Element -> Effect (Maybe (DOM.Element))
+textAreaChild ele = do
+  taColl <- ELE.getElementsByTagName "textarea" ele
+  HTMLCollection.item 0 taColl
+
 -- TODO: consider showing these as exampels in the presentation:
 textOfElem :: DOM.Element -> Effect String
 textOfElem ele = do
-  let textAreaMay = TAE.fromElement ele
+  taEleMay <- textAreaChild ele
+  let textAreaMay = join $ TAE.fromElement <$> taEleMay
   maybe emptyElem TAE.value textAreaMay
   where
     emptyElem = do
