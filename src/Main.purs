@@ -150,7 +150,15 @@ slides =
     , D.br', D.br', D.text "Brandon Barker"
     , D.br', D.text "brandon.barker@cornell.edu" ]
   , followAlongSlide
-  , cacSlide [ h 4 "Safer Software for Science"]
+  , cacSlide [
+      h 4 "Safer Software for Science"
+    , listAppearTxt [
+          "Safety tools traditionally used for large or mission critical projects"
+        , "Increasingly used across industries to mitigate refactor cost"
+        , "This is useful for any project, including Science"
+        , "Also: increase reusability by other scientists"
+        ]
+    ]
   ]
   <> pureScripIntroSlides
   <> staticTypeSlides
@@ -173,6 +181,8 @@ pureScripIntroSlides = [
             "Much like C++, Java, and Python are similar, PureScript is similar to:"
           , "Haskell - Common ancestor of this family, still very good for backend"
           , "Idris - More academic, but stronger typing features than even Haskell"
+          , "The common syntax of this family is very concise"
+          , "(even compared to Python!)"
           , "PureScript aims for simplicity and primarily targets JavaScript"
           ]
       ]
@@ -198,7 +208,37 @@ pureScripIntroSlides = [
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
 staticTypeSlides = [
-    cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
+    cacSlide [
+        h 4 "How do types help us?"
+      , listTxt [
+          "Type annotations are (good) documentation"
+        , "Static typing make it safer to change code"
+        , "(and usually easier to change code)"
+        , "Static typing make us think about design"
+        ]
+      ]
+  , cacSlide [
+      h 4 "Types as Documentation"
+    , listAppearTxt [
+        "Types are docs that don't get stale or lie"
+      , "Types become very recognizeable once familiar"
+      , "(Usually much faster than reading docs)"
+      , "TODO: add an example here"
+      ]
+    ]
+  , cacSlide [
+      h 4 "Types Enable Confident Refactoring"
+    , listAppearTxt [
+        "When you change something ..."
+      , "The compiler will tell you what broke as a result"
+      , "No need to run long, hand-written tests in most cases"
+      , "Or worse, find out from another user or reviewer"
+      , "The stronger the type system, the fewer tests needed"
+      , "(Still need some)"
+      ]
+    ]
+  , cacSlide [ h 4 "Types Guide Design (TODO)"] 
+  , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
   , cacSlide [
       h 4 "Don't lie with null (continued)"
     , D.text "list offenders: C/C++, Java, Python (without mypy)"]  
@@ -362,6 +402,13 @@ closingSlideTable= D.table [P.style {
 
 selfHref :: forall a. String -> Widget HTML a
 selfHref url = link url url
+
+list :: forall a. Array (Widget HTML a) -> Widget HTML a
+list items = D.ul [P.style{"text-align" : "left"}] $
+  D.li_ [] <$> items
+
+listTxt :: forall a. Array String -> Widget HTML a
+listTxt = list <<< (map D.text)
 
 listAppear :: forall a. Array (Widget HTML a) -> Widget HTML a
 listAppear items = D.ul [P.style{"text-align" : "left"}] $
