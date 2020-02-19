@@ -3,6 +3,7 @@ module Main where
 --TODO: Pursuit
 --TODO: fill in combinators
 --TODO: show do syntax, maybe with Effect and Maybe before writer
+--TODO: show examples: metajelo, matlab
 
 
 import Prelude hiding (div)
@@ -159,7 +160,35 @@ slides =
 
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
-    cacSlide [ h 4 "PureScript's Language Family"]
+    cacSlide [ h 4 "Why PureScript?",
+        listAppearTxt [
+            "We'll have to cover some ground first..."
+          , "In short: it allows us to enforce purity checks"
+          , "Not as quirky as mypy - wasn't done as an afer-thought"
+          , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
+          ]
+      ]
+  , cacSlide [ h 4 "PureScript's Language Family",
+        listAppearTxt [
+            "Much like C++, Java, and Python are similar, PureScript is similar to:"
+          , "Haskell - Common ancestor of this family, still very good for backend"
+          , "Idris - More academic, but stronger typing features than even Haskell"
+          , "PureScript aims for simplicity and primarily targets JavaScript"
+          ]
+      ]
+  , cacSlide [ h 4 "What can I do with PureScript?",
+        listAppear [
+            D.text "The PureScript ecosystem primarily targets JavaScript"
+          , D.text "Generates efficient JavaScript code for the Browser"
+          , D.text "Or, use Node.js for server or desktop coding"
+          , D.span' [
+                D.text "Use another backend such as "
+              , link "https://github.com/andyarvanitis/purescript-native/tree/cpp" "C++"
+              , D.text " or "
+              , link "https://github.com/andyarvanitis/purescript-native/tree/golang" "Go"
+              ]
+          ]
+      ]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
