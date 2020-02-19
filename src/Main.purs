@@ -1,5 +1,10 @@
 module Main where
 
+--TODO: Pursuit
+--TODO: fill in combinators
+--TODO: show do syntax, maybe with Effect and Maybe before writer
+
+
 import Prelude hiding (div)
 
 import Colors (black, blue, white)
@@ -145,18 +150,86 @@ slides =
     , D.br', D.text "brandon.barker@cornell.edu" ]
   , followAlongSlide
   , cacSlide [ h 4 "Safer Software for Science"]
-  , cacSlide [ h 4 "What is Functional Programming?", fpList, pureVsImpurePy]
-  , cacSlide [ h 4 "Safer Software for Science and FP", scienceFpList]
-  , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
-  , cacSlide [ h 4 "Don't lie with null", D.text "list offenders: C/C++, Java, Python (without mypy)"]
-  , cacSlide [ h 4 "PureScript FFI"]
-  , cacSlide [ h 4 "PureScript's Language Family"]
-  , cacSlide [ h 4 "PureScript FFI"]
-  , cacSlide [ closingSlideTable ]
+  ]
+  <> pureScripIntroSlides
+  <> staticTypeSlides
+  <> fpSlides
+  <> endSlides
+  <> [ cacSlide [ closingSlideTable ] ]
+
+pureScripIntroSlides :: forall a. Array (Widget HTML a)
+pureScripIntroSlides = [
+    cacSlide [ h 4 "PureScript's Language Family"]
   ]
 
+staticTypeSlides :: forall a. Array (Widget HTML a)
+staticTypeSlides = [
+    cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
+  , cacSlide [
+      h 4 "Don't lie with null (continued)"
+    , D.text "list offenders: C/C++, Java, Python (without mypy)"]  
+  ]
+
+fpSlides :: forall a. Array (Widget HTML a)
+fpSlides = [
+    cacSlide [ h 4 "Safer Software for Science and FP", scienceFpList]
+  , cacSlide [ h 4 "What's FP? Well, what's an effect?", effList]
+  ]
+  <> workingWithFunctions
+  <> [ whatIsFP
+  , cacSlide [ h 4 "The Synergy of FP and Types", staticFpSynergy ]
+  ]
+  where
+    scienceFpList = listAppearTxt [
+        "Scientists try to understand complex processes - not create them!"
+      , "FP mitigates complexity by removing side effects"
+      , "Simple does not always mean easy"
+      ]
+    effList = listAppearTxt [
+        "(Any IO)"
+      , "Writing or reading files"
+      , "Working with Network data"
+      , "Accessing any device, e.g., a printer"
+      , "GUI updates, etc."
+      , "But also: writing to a variable"
+      ]
+    staticFpSynergy = listAppearTxt [
+        "FP keeps types honest: recall Effect"
+      , "Effect is a type that enforces purity"
+      , "Both FP and Static types work"
+      ]
+
+workingWithFunctions :: forall a. Array (Widget HTML a)
+workingWithFunctions = [
+    cacSlide [ h 4 $ getWorkDone <> ": combinators"]
+  , cacSlide [ 
+        h 4 $ getWorkDone <> ": loops"
+      , listAppearTxt [
+          "Use map combinators to apply a function to a collection of data"
+        ]
+    ]
+  , cacSlide [ h 4 $ getWorkDone <> ": Writer Monad"]
+  ] 
+  where
+    getWorkDone = "Getting Work Done with Functions"
+    writerList = listAppearTxt [
+        "Wait, what's a monad? The reason FP sometimes gets ignored"
+      , "But we've already seen a few: Maybe and Effect"
+      , "For now, a Monad type wraps a computation and let's us use `do` syntax"
+    ]
+
 -- TOOD: Other Safe languages (e.g. Rust)
--- extraSlides
+endSlides :: forall a. Array (Widget HTML a)
+endSlides = [
+    cacSlide [ h 4 "Another Safe Language: Rust", rustList]  
+  ]
+  where
+    rustList = listAppearTxt [
+        "Uses a borrow checker to enforce data ownership rules"
+      , "Generally a highly typed language, but no purity checks"
+      , "Pro for HPC: same level of performance as C or C++"
+      , "Con for HPC: Can't call C++ directly in FFI"
+      ]
 
 followAlongSlide :: forall a. Widget HTML a
 followAlongSlide = cacSlide [
@@ -169,16 +242,17 @@ followAlongSlide = cacSlide [
   , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later (from a Cornell IP)"]
   ]
 
-fpList :: forall a. Widget HTML a
-fpList = listAppearTxt [
-    "Side effects are modeled by types"
-  , "Functions do not side effect by default"
-  ]
+whatIsFP :: forall a. Widget HTML a
+whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList, pureVsImpurePy]
+  where
+    fpList = listAppearTxt [
+        "Pure FP and FP should mean the same"
+      , "Without purity, there is not much benefit other than combinator convenience"
+      , "Side effects are modeled by types"
+      , "We need something like the Effect type to guarantee purity"
+      , "Functions do not side effect by default"
+      ]
 
-scienceFpList :: forall a. Widget HTML a
-scienceFpList = listAppearTxt [
-    "Scientists try to understand complex processes - not create them!"
-  ]
 
 pyPure :: String
 pyPure = """yy = 1
