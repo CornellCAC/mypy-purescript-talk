@@ -20,6 +20,7 @@ import Data.Maybe (Maybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
 import Effect.Class (liftEffect)
 import Effect.Console (log)
+import Effect (Effect)
 import Web.DOM (Element) as DOM
 import Web.DOM.Element as ELE
 import Web.DOM.NonElementParentNode (getElementById) as DOM
@@ -28,7 +29,6 @@ import Web.DOM.HTMLCollection as HTMLCollection
 import Web.HTML.HTMLDocument (toNonElementParentNode) as DOM
 import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
-import Effect (Effect)
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -91,7 +91,7 @@ runCodePane codeId = go "" where
   go output = step output do
     resultEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
     result <- liftEffect resultEf
-    liftEffect $ log result
+    -- liftEffect $ log result
     pure (go result)
 
 headerHeight :: String
@@ -148,8 +148,15 @@ slides =
   , cacSlide [ h 4 "What is Functional Programming?", fpList, pureVsImpurePy]
   , cacSlide [ h 4 "Safer Software for Science and FP", scienceFpList]
   , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
+  , cacSlide [ h 4 "Don't lie with null", D.text "list offenders: C/C++, Java, Python (without mypy)"]
+  , cacSlide [ h 4 "PureScript FFI"]
+  , cacSlide [ h 4 "PureScript's Language Family"]
+  , cacSlide [ h 4 "PureScript FFI"]
   , cacSlide [ closingSlideTable ]
   ]
+
+-- TOOD: Other Safe languages (e.g. Rust)
+-- extraSlides
 
 followAlongSlide :: forall a. Widget HTML a
 followAlongSlide = cacSlide [
@@ -159,7 +166,7 @@ followAlongSlide = cacSlide [
     , D.text "Edit and run live examples from the browser "
     , D.text "To reset examples: reload page"
     ]
-  , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later"]
+  , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later (from a Cornell IP)"]
   ]
 
 fpList :: forall a. Widget HTML a

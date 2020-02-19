@@ -9,6 +9,7 @@ You can edit this file as you like.
   , "effect"
   , "psci-support"
   , "web-dom"
+  , "web-events"
   , "web-html"
   ]
 , packages = ./packages.dhall
