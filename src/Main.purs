@@ -4,7 +4,7 @@ module Main where
 --TODO: fill in combinators
 --TODO: show do syntax, maybe with Effect and Maybe before writer
 --TODO: show examples: metajelo, matlab
-
+--TODO: add PureScript logo in intro
 
 import Prelude hiding (div)
 
@@ -221,6 +221,7 @@ staticTypeSlides = [
       h 4 "Types as Documentation"
     , listAppearTxt [
         "Types are docs that don't get stale or lie"
+      , "Reality: code changes, sometimes docs don't"
       , "Types become very recognizeable once familiar"
       , "(Usually much faster than reading docs)"
       , "TODO: add an example here"
@@ -237,11 +238,46 @@ staticTypeSlides = [
       , "(Still need some)"
       ]
     ]
-  , cacSlide [ h 4 "Types Guide Design (TODO)"] 
-  , cacSlide [ h 4 "Don't lie with null", codePanePy pyOptionStr]
+  , cacSlide [
+        h 4 "Types Guide Design (TODO)"
+      ]
+  , cacSlide [
+        h 4 "Some type systems are more honest than others"
+      , D.text "incomplete list of offenders: C/C++, Java, Python (without mypy)"
+      , D.text "Tony Hoare on Null: the billion dollar mistake"
+      , D.iframe [
+          P.width "560"
+        , P.height "315"
+        -- TODO: fix start point
+        , P.src "https://www.youtube.com/embed/YYkOWzrO3xg?start=153"
+        , P.frameBorder "0"
+        -- , P.allow "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        -- , P.allowFullscreen
+        ] []
+      ]
+  , cacSlide [
+      h 4 "Don't lie with null"
+    , h 6 "Optional to the Rescue!"
+    , codePanePy pyOptionStr
+    ]
   , cacSlide [
       h 4 "Don't lie with null (continued)"
-    , D.text "list offenders: C/C++, Java, Python (without mypy)"]  
+      -- TODO: Maybe example in PureScript
+    ]
+  , cacSlide [
+      h 4 "From Maybe to Either"
+    , listAppear [
+        D.text "What if we want more information than just None for a failure?"
+      , D.span' [
+            bold "Either a b", D.text "is a ", bold "Left", D.text " of ", bold "a"
+          , D.text "or a", bold "Right", D.text  "of ",  bold "b"]
+      , bold "Maybe b ≅ Either Unit b"
+      , D.text "Usually Left holds an error value, but can be used in other ways"
+      , D.text "Either is an sum type, not supported in Python"
+      , D.text "Though you could make a class that behaves similarly"
+      -- TODO: add either
+      ]
+    ]
   ]
 
 fpSlides :: forall a. Array (Widget HTML a)
@@ -266,6 +302,8 @@ fpSlides = [
       , "Accessing any device, e.g., a printer"
       , "GUI updates, etc."
       , "But also: writing to a variable"
+      , "(this last one can be achieved with writer monad ..."
+      , "... but modifying a variable outside of scope is prohibited)"
       ]
     staticFpSynergy = listAppearTxt [
         "FP keeps types honest: recall Effect"
@@ -292,10 +330,10 @@ workingWithFunctions = [
       , "For now, a Monad type wraps a computation and let's us use `do` syntax"
     ]
 
--- TOOD: Other Safe languages (e.g. Rust)
 endSlides :: forall a. Array (Widget HTML a)
 endSlides = [
-    cacSlide [ h 4 "Another Safe Language: Rust", rustList]  
+    cacSlide [ h 4 "Another Safe Language: Rust", rustList]
+  , cacSlide [ h 4 "Another Safe Language: Coconut", coconutList] --TODO add monty python scene
   ]
   where
     rustList = listAppearTxt [
@@ -304,6 +342,7 @@ endSlides = [
       , "Pro for HPC: same level of performance as C or C++"
       , "Con for HPC: Can't call C++ directly in FFI"
       ]
+    coconutList = listAppearTxt [] -- TODO
 
 followAlongSlide :: forall a. Widget HTML a
 followAlongSlide = cacSlide [
@@ -325,6 +364,7 @@ whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList, pureVs
       , "Side effects are modeled by types"
       , "We need something like the Effect type to guarantee purity"
       , "Functions do not side effect by default"
+      , "FP limits our capabilities to increase our effectiveness"
       ]
 
 
@@ -448,6 +488,9 @@ pad px = P.style {"padding" : (show px) <> "px"}
 
 flexGrow :: forall a. Int -> ReactProps a
 flexGrow fg = P.style {"flex-grow" : show fg}
+
+bold :: String -> forall a. Widget HTML a
+bold s = D.span_ [P.style {"fontWeight" : "bold"} ] $ D.text s
 
 pyOptionStr :: String
 pyOptionStr = """if listing_path is not None:
