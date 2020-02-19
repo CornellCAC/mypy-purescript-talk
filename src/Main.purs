@@ -180,6 +180,11 @@ pureScripIntroSlides = [
         listAppear [
             D.text "The PureScript ecosystem primarily targets JavaScript"
           , D.text "Generates efficient JavaScript code for the Browser"
+          , D.span' [
+              D.text "These slides are written in PureScript/"
+            , link "https://github.com/purescript-concur" "Concur"
+            , D.text " (React-based library)"
+            ]
           , D.text "Or, use Node.js for server or desktop coding"
           , D.span' [
                 D.text "Use another backend such as "
