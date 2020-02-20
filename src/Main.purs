@@ -1,10 +1,12 @@
 module Main where
 
 --TODO: Pursuit
---TODO: fill in combinators
+--TODO: fill in HOFs
 --TODO: show do syntax, maybe with Effect and Maybe before writer
 --TODO: show examples: metajelo, matlab
 --TODO: add PureScript logo in intro
+--TODO: quicksort in purescript, shout out to Hoare?
+--TODO: Coconut, futhark
 
 import Prelude hiding (div)
 
@@ -153,7 +155,7 @@ slides =
   , cacSlide [
       h 4 "Safer Software for Science"
     , listAppearTxt [
-          "Safety tools traditionally used for large or mission critical projects"
+          "Safety tools traditionally used for mission critical projects"
         , "Increasingly used across industries to mitigate refactor cost"
         , "This is useful for any project, including Science"
         , "Also: increase reusability by other scientists"
@@ -169,41 +171,47 @@ slides =
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
     cacSlide [ h 4 "Why PureScript?",
-        listAppearTxt [
-            "We'll have to cover some ground first..."
-          , "In short: it allows us to enforce purity checks"
-          , "Not as quirky as mypy - wasn't done as an afer-thought"
-          , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
-          ]
-      ]
+      listAppearTxt [
+          "We'll have to cover some ground first..."
+        , "In short: it allows us to enforce purity checks"
+        , "Not as quirky as mypy - wasn't done as an afer-thought"
+        , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
+        ]
+    ]
   , cacSlide [ h 4 "PureScript's Language Family",
-        listAppearTxt [
-            "Much like C++, Java, and Python are similar, PureScript is similar to:"
-          , "Haskell - Common ancestor of this family, still very good for backend"
-          , "Idris - More academic, but stronger typing features than even Haskell"
-          , "The common syntax of this family is very concise"
-          , "(even compared to Python!)"
-          , "PureScript aims for simplicity and primarily targets JavaScript"
-          ]
+      D.text "Much like C++, Java, and Python are similar, PureScript is similar to:"
+    , listAppear [ D.div' [ D.text "Haskell - Common ancestor of this family"
+        , listTxt ["still very good for backend", "lazily evaluated", "many language extensions"]
+        ]
+      , D.div' [D.text "Idris - More academic"
+        , listTxt ["stronger typing features than even Haskell" ]
+        ]
+      , D.text "The common syntax of this family is very concise"
+      , D.text "(even compared to Python!)"
+      , D.text "PureScript aims for simplicity and primarily targets JavaScript"
       ]
+    ]
   , cacSlide [ h 4 "What can I do with PureScript?",
-        listAppear [
-            D.text "The PureScript ecosystem primarily targets JavaScript"
-          , D.text "Generates efficient JavaScript code for the Browser"
-          , D.span' [
-              D.text "These slides are written in PureScript/"
-            , link "https://github.com/purescript-concur" "Concur"
-            , D.text " (React-based library)"
-            ]
-          , D.text "Or, use Node.js for server or desktop coding"
-          , D.span' [
-                D.text "Use another backend such as "
-              , link "https://github.com/andyarvanitis/purescript-native/tree/cpp" "C++"
-              , D.text " or "
-              , link "https://github.com/andyarvanitis/purescript-native/tree/golang" "Go"
-              ]
+      listAppear [
+          D.text "The PureScript ecosystem primarily targets JavaScript"
+        , D.text "Generates efficient JavaScript code for the Browser"
+        , D.span' [
+            D.text "These slides are written in PureScript/"
+          , link "https://github.com/purescript-concur" "Concur"
+          , listTxt ["Concur is a React-based library for PureScript" ]
           ]
-      ]
+        , D.text "Use Node.js for server or desktop coding"
+        , D.div' [ D.text "Use another backend such as "
+          , list [
+              link "https://github.com/andyarvanitis/purescript-native/tree/cpp" "C++"
+            , link "https://github.com/andyarvanitis/purescript-native/tree/golang" "Go"
+            , D.span' [link "https://github.com/csicar/pskt" "Kotlin"
+              , D.text " — useful for interacting with Java or Android"]
+            , link "https://github.com/purescript/documentation/blob/master/ecosystem/Alternate-backends.md" "others"
+            ]
+          ]
+        ]
+    ]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
@@ -212,8 +220,7 @@ staticTypeSlides = [
         h 4 "How do types help us?"
       , listTxt [
           "Type annotations are (good) documentation"
-        , "Static typing make it safer to change code"
-        , "(and usually easier to change code)"
+        , "Static typing make its safer (and quicker!) to change code"
         , "Static typing make us think about design"
         ]
       ]
@@ -243,13 +250,14 @@ staticTypeSlides = [
       ]
   , cacSlide [
         h 4 "Some type systems are more honest than others"
-      , D.text "incomplete list of offenders: C/C++, Java, Python (without mypy)"
-      , D.text "Tony Hoare on Null: the billion dollar mistake"
+      , list [ D.div' [D.text "Incomplete list of offenders: "
+        , listTxt $ pure "C/C++, Java, Python (without mypy)" ]]
+      , D.div_ [] $ D.text "Tony Hoare on Null: the billion dollar mistake"
       , D.iframe [
-          P.width "560"
-        , P.height "315"
+          P.width "728"
+        , P.height "410"
         -- TODO: fix start point
-        , P.src "https://www.youtube.com/embed/YYkOWzrO3xg?start=153"
+        , P.src "https://www.youtube.com/embed/YYkOWzrO3xg?start=128?rel=0"
         , P.frameBorder "0"
         -- , P.allow "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
         -- , P.allowFullscreen
@@ -269,9 +277,9 @@ staticTypeSlides = [
     , listAppear [
         D.text "What if we want more information than just None for a failure?"
       , D.span' [
-            bold "Either a b", D.text "is a ", bold "Left", D.text " of ", bold "a"
-          , D.text "or a", bold "Right", D.text  "of ",  bold "b"]
-      , bold "Maybe b ≅ Either Unit b"
+            code "Either a b", D.text " is a ", code "Left", D.text " of ", code "a"
+          , D.text " or a ", code "Right", D.text  " of ",  code "b"]
+      , code "Maybe b ≅ Either Unit b"
       , D.text "Usually Left holds an error value, but can be used in other ways"
       , D.text "Either is an sum type, not supported in Python"
       , D.text "Though you could make a class that behaves similarly"
@@ -286,7 +294,7 @@ fpSlides = [
   , cacSlide [ h 4 "What's FP? Well, what's an effect?", effList]
   ]
   <> workingWithFunctions
-  <> [ whatIsFP
+  <> [ whatIsFP, pureVsImpure1
   , cacSlide [ h 4 "The Synergy of FP and Types", staticFpSynergy ]
   ]
   where
@@ -313,14 +321,20 @@ fpSlides = [
 
 workingWithFunctions :: forall a. Array (Widget HTML a)
 workingWithFunctions = [
-    cacSlide [ h 4 $ getWorkDone <> ": combinators"]
-  , cacSlide [ 
-        h 4 $ getWorkDone <> ": loops"
-      , listAppearTxt [
-          "Use map combinators to apply a function to a collection of data"
+    cacSlide [ h 5 $ getWorkDone <> ": HOFs", h 6 "(Higher Order Functions)"
+      , listAppear [
+          D.text "HOFs take other functions as arguments"
+        , D.text "When functions are \"first class\", HOF is just a function"
+        , D.span' [ D.text "Most common example: ", code "map" ]
         ]
+      ]
+  , cacSlide [ 
+      h 5 $ getWorkDone <> ": loops"
+    , listAppearTxt [
+        "Use map HOF to apply a function to a collection of data"
+      ]
     ]
-  , cacSlide [ h 4 $ getWorkDone <> ": Writer Monad"]
+  , cacSlide [ h 5 $ getWorkDone <> ": Writer Monad"]
   ] 
   where
     getWorkDone = "Getting Work Done with Functions"
@@ -356,17 +370,19 @@ followAlongSlide = cacSlide [
   ]
 
 whatIsFP :: forall a. Widget HTML a
-whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList, pureVsImpurePy]
+whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList]
   where
     fpList = listAppearTxt [
         "Pure FP and FP should mean the same"
-      , "Without purity, there is not much benefit other than combinator convenience"
+      , "Without purity, there is not much benefit other than HOF convenience"
       , "Side effects are modeled by types"
       , "We need something like the Effect type to guarantee purity"
       , "Functions do not side effect by default"
       , "FP limits our capabilities to increase our effectiveness"
       ]
-
+      
+pureVsImpure1 :: forall a. Widget HTML a
+pureVsImpure1 = cacSlide [h 4 "Pure vs Impure", pureVsImpurePy]
 
 pyPure :: String
 pyPure = """yy = 1
@@ -489,7 +505,10 @@ pad px = P.style {"padding" : (show px) <> "px"}
 flexGrow :: forall a. Int -> ReactProps a
 flexGrow fg = P.style {"flex-grow" : show fg}
 
-bold :: String -> forall a. Widget HTML a
+code :: forall a. String -> Widget HTML a
+code = D.code' <<< pure <<< D.text
+
+bold :: forall a. String -> Widget HTML a
 bold s = D.span_ [P.style {"fontWeight" : "bold"} ] $ D.text s
 
 pyOptionStr :: String
