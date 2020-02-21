@@ -24,9 +24,41 @@ exports.mkJobId = function () { // Effect thunk
   return CCRS.makeJobId();
 };
 
-exports.makeOneShotCommand = function (node) {
+exports.makeOneShotCommandWidg = function (node) {
   return function () { // Effect thunk
-    return CCRS.makeOneShotCommand(node);
+    return CCRS.makeOneShotCommandWidg(node);
+  };
+};
+
+exports.updateOptCmd = function (cmdWidg) {
+  return function (metaIn) {
+    return function (jobId) {
+      return function (cmd) {
+        return function () { // Effect thunk
+          return CCRS.updateOptCmd(cmdWidg, metaIn, jobId, cmd);
+        };
+      };
+    };
+  };
+};
+
+exports.makeExecFileCommandWidg = function (node) {
+  return function () { // Effect thunk
+    return CCRS.makeExecFileCommandWidg(node);
+  };
+};
+
+exports.updateOptFileCmd = function (cmdWidg) {
+  return function (metaIn) {
+    return function (jobId) {
+      return function (files) {
+        return function (cmd) {
+          return function () { // Effect thunk
+            return CCRS.updateOptFileCmd(cmdWidg, metaIn, jobId, files, cmd);
+          };
+        };
+      };
+    };
   };
 };
 
@@ -38,4 +70,8 @@ exports.makeCmdHandler = function (cmdVar) {
       };
     };
   };
+};
+
+exports.makeFileContents = function (fileDict) {
+  return CCRS.makeFileContents(fileDict);
 };

@@ -1,5 +1,6 @@
 module Main where
 
+--TODO: PureScript: Basic Syntax, Records
 --TODO: Pursuit
 --TODO: fill in HOFs
 --TODO: show do syntax, maybe with Effect and Maybe before writer
@@ -23,12 +24,15 @@ import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Concur.Spectacle (appear, codePane, deck, heading, slide)
 import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, source, theme, transition, transitionDuration)
-import Data.Array ((:))
-import Data.Maybe (Maybe, maybe)
+import Data.Array ((:), head)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
+import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect (Effect)
+import Talk.CCRS as CCRS
+import Talk.Exec as Exec
 import Web.DOM (Element) as DOM
 import Web.DOM.Element as ELE
 import Web.DOM.NonElementParentNode (getElementById) as DOM
@@ -37,6 +41,8 @@ import Web.DOM.HTMLCollection as HTMLCollection
 import Web.HTML.HTMLDocument (toNonElementParentNode) as DOM
 import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
+
+type CtrlSignal v a = a -> Signal v a
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -86,21 +92,48 @@ codePanePy src =
     ] []
 
 codePanePyRun :: forall a. String -> String -> Widget HTML a
-codePanePyRun codeId src = D.div_ [P._id codeId] $
-  codePane
-    [ P.style { "fontSize": "1.4rem" }
-    , lang "python"
-    , source src
-    ] []
+codePanePyRun codeId src = D.div [P._id codeId] [
+    codePane
+      [ P.style { "fontSize": "1.4rem" }
+      , lang "python"
+      , source src
+      ] []
+    , D.div [P._id $ viewIdOf codeId] []
+  ]
 
-runCodePane :: String -> Signal HTML String
-runCodePane codeId = go "" where
-  go :: String -> Signal HTML String
-  go output = step output do
-    resultEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
-    result <- liftEffect resultEf
-    -- liftEffect $ log result
-    pure (go result)
+runCodePane ::
+     String
+  -> (Array String -> CCRS.ExecFileCmd)
+  -> Signal HTML (Tuple (Maybe CCRS.JobId) String)
+runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
+  jobId <- liftEffect CCRS.mkJobId
+  pure $ go $ Tuple (Just jobId) ""
+  where
+    go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
+    go ctrl = step ctrl do
+      let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
+      jobId <- liftEffect jobIdEf
+      codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
+      codeTxt <- liftEffect codeEf
+      let fileCmd = mkFileCmd [codeTxt]
+      let fileContents = CCRS.fileContentsFromArray fileCmd.files
+      let cmd = fileCmd.command (fst <$> fileCmd.files)
+      viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
+      let viewNodeMay = ELE.toNode <$> viewEleMay
+      liftEffect $ case viewNodeMay of
+        Just viewNode -> do
+          viewWidg <- CCRS.makeExecFileCommandWidg viewNode
+          _ <- CCRS.updateOptFileCmd viewWidg fileCmd.meta jobId fileContents cmd
+          pure unit
+        Nothing -> pure unit
+      -- liftEffect $ log result
+      pure $ go $ Tuple (Just jobId) codeTxt
+      where
+        jobIdMay = fst ctrl
+        output = snd ctrl
+
+viewIdOf :: String -> String
+viewIdOf id = id <> "_view"
 
 headerHeight :: String
 headerHeight = "100px"
@@ -328,14 +361,14 @@ workingWithFunctions = [
         , D.span' [ D.text "Most common example: ", code "map" ]
         ]
       ]
-  , cacSlide [ 
+  , cacSlide [
       h 5 $ getWorkDone <> ": loops"
     , listAppearTxt [
         "Use map HOF to apply a function to a collection of data"
       ]
     ]
   , cacSlide [ h 5 $ getWorkDone <> ": Writer Monad"]
-  ] 
+  ]
   where
     getWorkDone = "Getting Work Done with Functions"
     writerList = listAppearTxt [
@@ -380,9 +413,11 @@ whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList]
       , "Functions do not side effect by default"
       , "FP limits our capabilities to increase our effectiveness"
       ]
-      
+
 pureVsImpure1 :: forall a. Widget HTML a
 pureVsImpure1 = cacSlide [h 4 "Pure vs Impure", pureVsImpurePy]
+
+
 
 pyPure :: String
 pyPure = """yy = 1
@@ -420,14 +455,23 @@ pureVsImpurePy = D.div [P.style{
     appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
         h 6 "Pure"
       , codePanePyRun pyPureId pyPure
-      , dyn $ runCodePane pyPureId
+      , dyn $ runCodePane pyPureId mkCmd
       ]
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       h 6 "Not Pure"
     , codePanePyRun pyImpureId pyImpure
-    , dyn $ runCodePane pyImpureId
+    , dyn $ runCodePane pyImpureId mkCmd
     ]
   ]
+  where
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "foo.py" fc0]
+      , command: Exec.runPyFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
 
 
 closingSlideTable :: forall a. Widget HTML a
