@@ -2,10 +2,12 @@ module Talk.CCRS where
 
 import Prelude
 
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple)
 import Effect (Effect)
 import Foreign.Object as FO
-import Web.DOM.Node (Node)
+import Web.DOM.Node (Node, removeChild, childNodes)
+import Web.DOM.NodeList as NL
 import Web.Event.Event (Event)
 
 -- | A JavaScript CCRS metadata value
@@ -31,6 +33,11 @@ foreign import mkJobId :: Effect JobId
 
 foreign import makeOneShotCommandWidg :: Node -> Effect OneShotOptVar
 
+makeOneShotCommandWidgClear :: Node -> Effect OneShotOptVar
+makeOneShotCommandWidgClear widgContainer = do
+  removeChildren widgContainer
+  makeOneShotCommandWidgClear widgContainer
+
 foreign import updateOptCmd ::
      OneShotOptVar
   -> SysJobMetaData
@@ -39,6 +46,11 @@ foreign import updateOptCmd ::
   -> Effect OneShotOpt
 
 foreign import makeExecFileCommandWidg :: Node -> Effect ExecFileOptVar
+
+makeExecFileCommandWidgClear :: Node -> Effect ExecFileOptVar
+makeExecFileCommandWidgClear widgContainer = do
+  removeChildren widgContainer
+  makeExecFileCommandWidg widgContainer
 
 foreign import updateOptFileCmd ::
      ExecFileOptVar
@@ -70,7 +82,9 @@ type ExecFileCmd = {
   }
 
 
-
-
-
-
+removeChildren :: Node -> Effect Unit
+removeChildren node = do
+  nl <- childNodes node
+  nodes <- NL.toArray nl
+  _ <- traverse (\n -> removeChild n node) nodes
+  pure unit

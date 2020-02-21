@@ -122,8 +122,9 @@ runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
       let viewNodeMay = ELE.toNode <$> viewEleMay
       liftEffect $ case viewNodeMay of
         Just viewNode -> do
-          viewWidg <- CCRS.makeExecFileCommandWidg viewNode
-          _ <- CCRS.updateOptFileCmd viewWidg fileCmd.meta jobId fileContents cmd
+          viewWidg <- CCRS.makeExecFileCommandWidgClear viewNode
+          _ <- CCRS.updateOptFileCmd
+            viewWidg fileCmd.meta jobId fileContents cmd
           pure unit
         Nothing -> pure unit
       -- liftEffect $ log result

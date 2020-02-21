@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Array (head)
 import Data.Maybe (Maybe(..))
-import Talk.CCRS as CCRS
 
 -- | Assumes the first file is the file to be run
 runPyFile :: Array String -> String
