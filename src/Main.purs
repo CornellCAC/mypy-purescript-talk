@@ -27,6 +27,7 @@ import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, prel
 import Data.Array ((:), head)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
+import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
@@ -107,10 +108,15 @@ runCodePane ::
   -> Signal HTML (Tuple (Maybe CCRS.JobId) String)
 runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
   jobId <- liftEffect CCRS.mkJobId
-  pure $ go $ Tuple (Just jobId) ""
+  viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
+  let viewNodeMay = ELE.toNode <$> viewEleMay
+  viewWidgMay <- liftEffect $ sequence $
+    CCRS.makeExecFileCommandWidgClear <$> viewNodeMay
+  pure $ go viewWidgMay $ Tuple (Just jobId) ""
   where
-    go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
-    go ctrl = step ctrl do
+    go :: Maybe CCRS.ExecFileOptVar
+      -> CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
+    go viewWidgMay ctrl = step ctrl do
       let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
       jobId <- liftEffect jobIdEf
       codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
@@ -118,17 +124,14 @@ runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
       let fileCmd = mkFileCmd [codeTxt]
       let fileContents = CCRS.fileContentsFromArray fileCmd.files
       let cmd = fileCmd.command (fst <$> fileCmd.files)
-      viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
-      let viewNodeMay = ELE.toNode <$> viewEleMay
-      liftEffect $ case viewNodeMay of
-        Just viewNode -> do
-          viewWidg <- CCRS.makeExecFileCommandWidgClear viewNode
+      liftEffect $ case viewWidgMay of
+        Just viewWidg -> do
           _ <- CCRS.updateOptFileCmd
             viewWidg fileCmd.meta jobId fileContents cmd
           pure unit
         Nothing -> pure unit
       -- liftEffect $ log result
-      pure $ go $ Tuple (Just jobId) codeTxt
+      pure $ go viewWidgMay $ Tuple (Just jobId) codeTxt
       where
         jobIdMay = fst ctrl
         output = snd ctrl
