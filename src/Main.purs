@@ -98,7 +98,6 @@ codePanePyRun codeId src = D.div [P._id codeId] [
       , lang "python"
       , source src
       ] []
-    , D.div [P._id $ viewIdOf codeId] []
   ]
 
 runCodePane ::
@@ -110,25 +109,28 @@ runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
   pure $ go $ Tuple (Just jobId) ""
   where
     go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
-    go ctrl = step ctrl do
-      let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
-      jobId <- liftEffect jobIdEf
-      codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
-      codeTxt <- liftEffect codeEf
-      let fileCmd = mkFileCmd [codeTxt]
-      let fileContents = CCRS.fileContentsFromArray fileCmd.files
-      let cmd = fileCmd.command (fst <$> fileCmd.files)
-      viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
-      let viewNodeMay = ELE.toNode <$> viewEleMay
-      liftEffect $ case viewNodeMay of
-        Just viewNode -> do
-          viewWidg <- CCRS.makeExecFileCommandWidgClear viewNode
-          _ <- CCRS.updateOptFileCmd
-            viewWidg fileCmd.meta jobId fileContents cmd
-          pure unit
-        Nothing -> pure unit
-      -- liftEffect $ log result
-      pure $ go $ Tuple (Just jobId) codeTxt
+    go ctrl = step ctrl $ D.div' [
+        do
+          let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
+          jobId <- liftEffect jobIdEf
+          codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
+          codeTxt <- liftEffect codeEf
+          let fileCmd = mkFileCmd [codeTxt]
+          let fileContents = CCRS.fileContentsFromArray fileCmd.files
+          let cmd = fileCmd.command (fst <$> fileCmd.files)
+          viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
+          let viewNodeMay = ELE.toNode <$> viewEleMay
+          liftEffect $ case viewNodeMay of
+            Just viewNode -> do
+              viewWidg <- CCRS.makeExecFileCommandWidgClear viewNode
+              _ <- CCRS.updateOptFileCmd
+                viewWidg fileCmd.meta jobId fileContents cmd
+              pure unit
+            Nothing -> pure unit
+          -- liftEffect $ log result
+          pure $ go $ Tuple (Just jobId) codeTxt
+        , D.div [P._id $ viewIdOf codeId] []
+        ]
       where
         jobIdMay = fst ctrl
         output = snd ctrl
