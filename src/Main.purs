@@ -43,6 +43,7 @@ import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
 
 type CtrlSignal v a = a -> Signal v a
+type CtrlWidget v a = a -> Widget v a
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -98,7 +99,6 @@ codePanePyRun codeId src = D.div [P._id codeId] [
       , lang "python"
       , source src
       ] []
-    , D.div [P._id $ viewIdOf codeId] []
   ]
 
 runCodePane ::
@@ -110,7 +110,11 @@ runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
   pure $ go $ Tuple (Just jobId) ""
   where
     go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
-    go ctrl = step ctrl do
+    go ctrl = step ctrl $ D.div [P._id $ viewIdOf codeId] [
+        _ <- goCo ctrl
+      ]
+    goCo :: CtrlWidget HTML (Tuple (Maybe CCRS.JobId) String)
+    goCo ctrl = do
       let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
       jobId <- liftEffect jobIdEf
       codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
@@ -128,7 +132,7 @@ runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
           pure unit
         Nothing -> pure unit
       -- liftEffect $ log result
-      pure $ go $ Tuple (Just jobId) codeTxt
+      dyn $ go $ Tuple (Just jobId) codeTxt
       where
         jobIdMay = fst ctrl
         output = snd ctrl
