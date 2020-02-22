@@ -6,13 +6,13 @@ var mypyPursMetaJson = {
   "$type": ccrsApiNamespace + ".SysJobMetaData",
   "shell": ["bash"],
   "containerType": {
-    "$type":  ccrsApiNamespace + ".Singularity"
+    "$type":  ccrsApiNamespace + ".NixOS"
   },
-  "containerId": [],
-  "image": ["vsoch-pokemon-master-latest.simg"],
+  "containerId": ["mypyPurs"],
+  "image": [],
   "binds": [],
   "overlay": [],
-  "user": "ccrsdemo",
+  "user": "test0",
   "address": [],
   "hostname": [],
   "url": window.location.href

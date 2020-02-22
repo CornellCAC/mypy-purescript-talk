@@ -1,6 +1,7 @@
 module Main where
 
---TODO: PureScript: Basic Syntax, Records
+--TODO: add something to CCRS like oneshot but without the need for view components.
+--TODO: PureScript: Basic Syntax: Functions, function calls, Records, 
 --TODO: Pursuit
 --TODO: fill in HOFs
 --TODO: show do syntax, maybe with Effect and Maybe before writer
@@ -75,13 +76,22 @@ codeHeading title = heading [
   , P.size 1
   ] [D.text title]
 
-codePaneHs :: forall a. String -> Widget HTML a
-codePaneHs src =
+codePanePs :: forall a. String -> Widget HTML a
+codePanePs src =
   codePane
     [ P.style { "fontSize": "1.4rem" }
     , lang "haskell"
     , source src
     ] []
+
+codePanePsRun :: forall a. String -> String -> Widget HTML a
+codePanePsRun codeId src = D.div [P._id codeId] [
+    codePane
+      [ P.style { "fontSize": "1.4rem" }
+      , lang "haskell"
+      , source src
+      ] []
+  ]
 
 codePanePy :: forall a. String -> Widget HTML a
 codePanePy src =
@@ -102,9 +112,10 @@ codePanePyRun codeId src = D.div [P._id codeId] [
 
 runCodePane ::
      String
+  -> Array String
   -> (Array String -> CCRS.ExecFileCmd)
   -> Signal HTML (Tuple (Maybe CCRS.JobId) String)
-runCodePane codeId mkFileCmd = step (Tuple Nothing "") do
+runCodePane codeId initCmds mkFileCmd = step (Tuple Nothing "") do
   jobId <- liftEffect CCRS.mkJobId
   pure $ go $ Tuple (Just jobId) ""
   where
@@ -210,6 +221,7 @@ pureScripIntroSlides = [
       listAppearTxt [
           "We'll have to cover some ground first..."
         , "In short: it allows us to enforce purity checks"
+        , "Compiles to somewhat readable (non-idiomatic) code"
         , "Not as quirky as mypy - wasn't done as an afer-thought"
         , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
         ]
@@ -217,7 +229,12 @@ pureScripIntroSlides = [
   , cacSlide [ h 4 "PureScript's Language Family",
       D.text "Much like C++, Java, and Python are similar, PureScript is similar to:"
     , listAppear [ D.div' [ D.text "Haskell - Common ancestor of this family"
-        , listTxt ["still very good for backend", "lazily evaluated", "many language extensions"]
+        , listTxt [
+            "still very good for backend"
+          , "lazily evaluated"
+          , "many language extensions"
+          , "but requires a hefty runtime (not ideal for browsers)"
+          ]
         ]
       , D.div' [D.text "Idris - More academic"
         , listTxt ["stronger typing features than even Haskell" ]
@@ -248,6 +265,7 @@ pureScripIntroSlides = [
           ]
         ]
     ]
+  , cacSlide [h 4 "PureScript Functions", funsInPs]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
@@ -458,12 +476,12 @@ pureVsImpurePy = D.div [P.style{
     appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
         h 6 "Pure"
       , codePanePyRun pyPureId pyPure
-      , dyn $ runCodePane pyPureId mkCmd
+      , dyn $ runCodePane pyPureId [] mkCmd
       ]
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       h 6 "Not Pure"
     , codePanePyRun pyImpureId pyImpure
-    , dyn $ runCodePane pyImpureId mkCmd
+    , dyn $ runCodePane pyImpureId [] mkCmd
     ]
   ]
   where
@@ -471,6 +489,32 @@ pureVsImpurePy = D.div [P.style{
     mkCmd fContents = {
         files: [Tuple "foo.py" fc0]
       , command: Exec.runPyFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+funsInPs :: forall a. Widget HTML a
+funsInPs = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+  }] [
+    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        h 6 "Function syntax"
+      , codePanePs psFunction
+      ]
+  , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+      h 6 "Simple example: double"
+    , codePanePsRun psDoubleId psDouble
+    , dyn $ runCodePane psDoubleId ["spago init"] mkCmd
+    , italic "Note: need 2.0 (float) and not 2 (Int)"
+    ]
+  ]
+  where
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "double.purs" fc0]
+      , command: Exec.compilePsFile
       , meta: CCRS.mypyPursMeta
       }
       where
@@ -558,12 +602,33 @@ code = D.code' <<< pure <<< D.text
 bold :: forall a. String -> Widget HTML a
 bold s = D.span_ [P.style {"fontWeight" : "bold"} ] $ D.text s
 
+italic :: forall a. String -> Widget HTML a
+italic s = D.span_ [P.style {"fontWeight" : "italic"} ] $ D.text s
+
 pyOptionStr :: String
 pyOptionStr = """if listing_path is not None:
     bibtex_path = get_dblp_bibtex_path(listing_path)
 else:
     return None
 """
+
+psFunction :: String
+psFunction = """functionName :: InputType1 -> InputType2 -> ... -> OutputType
+functionName input1 input2 = ...
+"""
+
+psDouble :: String
+psDouble = """module Main where
+
+import Prelude
+
+double :: Number -> Number
+double x = 2.0 * x
+"""
+
+psDoubleId :: String
+psDoubleId = "psDouble"
+
 
 slidesUrl :: String
 slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
