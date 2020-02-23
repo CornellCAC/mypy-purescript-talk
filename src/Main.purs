@@ -612,8 +612,7 @@ noNewtypeInPs = listAppear [
 
 newtypeInPs:: forall a. Widget HTML a
 newtypeInPs = listAppear [
-    D.text "Creates a static wrapper type"
-  , D.text "Not an alias, but still, no runtime overhead"
+    D.text "Not an alias, but a static wrapper (no runtime overhead)"
   , D.div [P.style{
           "display": "flex"
         , "flex-direction": "row"
@@ -623,8 +622,6 @@ newtypeInPs = listAppear [
         ,   dyn $ runCodePane psNewtypeId initCmds mkCmd
         ]
       ]
-  , D.text "Avoid erroneous value construction by only exporting a "
-    <|> italic "smart constructor"
   , D.text "Newtype has other uses as well: see instances"
   ]
   where
@@ -640,8 +637,11 @@ newtypeInPs = listAppear [
 
 smartConsInPs:: forall a. Widget HTML a
 smartConsInPs = listAppear [
-    D.text "Use explicit exports in module"
-  , D.text "Outside of module, " <|> code "User" <|> D.text " constructor not seen"
+    D.text "Avoid erroneous value construction by only exporting a "
+    <|> italic "smart constructor and not "
+    <|> code "User" <|> D.text " constructor"
+  , D.text "Explicit exports: Only " <|> code "parseUser" <|> D.text " and "
+      <|> code "User" <|> D.text " type visible outside"
   , D.div [P.style{
           "display": "flex"
         , "flex-direction": "row"
@@ -653,8 +653,6 @@ smartConsInPs = listAppear [
       ]
   , D.text "Smart constructor " <|> code "parseUser"
     <|> D.text " is just a simple function" 
-  , D.text "Only " <|> code "parseUser" <|> D.text " and "
-      <|> code "User" <|> D.text " type visible"
   , D.text "Note: there is runtime overhead in this smart constructor"
   ]
   where
