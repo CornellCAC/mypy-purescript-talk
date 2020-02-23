@@ -365,6 +365,7 @@ fpSlides = [
   where
     scienceFpList = listAppearTxt [
         "Scientists try to understand complex processes - not create them!"
+      , "Object simulation, as possible in OO, reflects reality but is complex" 
       , "FP mitigates complexity by removing side effects"
       , "Simple does not always mean easy"
       ]
