@@ -1,7 +1,7 @@
 module Main where
 
 --TODO: add something to CCRS like oneshot but without the need for view components.
---TODO: PureScript: Basic Syntax: Functions, function calls, Records, 
+--TODO: PureScript: Basic Syntax: Records, Type Classes (Show as an example)
 --TODO: Pursuit
 --TODO: fill in HOFs
 --TODO: show do syntax, maybe with Effect and Maybe before writer
@@ -266,6 +266,8 @@ pureScripIntroSlides = [
         ]
     ]
   , cacSlide [h 4 "PureScript Functions", funsInPs]
+  , cacSlide [h 4 "Partially supplied parameters (Currying)", curryInPs]
+  , cacSlide [h 4 "Record types and type aliases", recInPs]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
@@ -384,9 +386,15 @@ workingWithFunctions = [
       ]
   , cacSlide [
       h 5 $ getWorkDone <> ": loops"
-    , listAppearTxt [
-        "Use map HOF to apply a function to a collection of data"
+    , listAppear [
+        D.text "Use map HOF to apply a function to a collection of data"
+      , D.span' [ D.text "map :: "
+        , link
+          "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Functor#v:map"
+          "(a -> b) -> f a -> f b"
+        ]
       ]
+    , curryHOFInPs
     ]
   , cacSlide [ h 5 $ getWorkDone <> ": Writer Monad"]
   ]
@@ -520,6 +528,71 @@ funsInPs = D.div [P.style{
       where
         fc0 = fromMaybe "" (head fContents)
 
+curryInPs :: forall a. Widget HTML a
+curryInPs = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+  }] [
+    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        codePanePsRun psCurryId psCurry
+      , dyn $ runCodePane psCurryId initCmds mkCmd
+      , italic $ "\"Currying is a process in functional programming "
+        <> "in which we can transform a function with multiple "
+        <> "arguments into a sequence of nesting functions. \""
+      ]
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "curry.purs" fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+recInPs :: forall a. Widget HTML a
+recInPs = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+  }] [
+    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        codePanePsRun psRecordTypeId psRecordType
+      , dyn $ runCodePane psRecordTypeId initCmds mkCmd
+      ]
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "recType.purs" fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+curryHOFInPs :: forall a. Widget HTML a
+curryHOFInPs = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+  }] [
+    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        codePanePsRun psCurryHOFId psCurryHOF
+      , dyn $ runCodePane psCurryHOFId initCmds mkCmd
+      ]
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "curryHOF.purs" fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
 
 closingSlideTable :: forall a. Widget HTML a
 closingSlideTable= D.table [P.style {
@@ -628,6 +701,60 @@ double x = 2.0 * x
 
 psDoubleId :: String
 psDoubleId = "psDouble"
+
+psCurry :: String
+psCurry = """module Main where
+
+import Prelude
+import Effect (Effect)
+import Effect.Class.Console (logShow)
+
+mul :: Number -> Number -> Number
+mul x y = x * y
+
+main :: Effect Unit
+main = do
+  logShow (mul 3.0 4.0)
+"""
+
+psCurryId :: String
+psCurryId = "psCurry"
+
+
+psCurryHOF :: String
+psCurryHOF = """module Main where
+
+import Prelude
+import Effect (Effect)
+import Effect.Class.Console (logShow)
+
+main :: Effect
+main = do
+  logShow $ map (* 2) [0, 1, 2, 3]
+"""
+
+psCurryHOFId :: String
+psCurryHOFId = "psCurryHOF"
+
+psRecordType :: String
+psRecordType = """module Main where
+
+import Prelude
+import Effect (Effect)
+import Effect.Class.Console (logShow)
+
+type Point2D = {x :: Number, y :: Number}
+myPoint :: Point2D
+myPoint = {x: 0.0, y: 1.5}
+
+main :: Effect
+main = do
+  logShow myPoint
+"""
+
+psRecordTypeId :: String
+psRecordTypeId = "psRecordType"
+
 
 
 slidesUrl :: String
