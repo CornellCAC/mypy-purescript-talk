@@ -26,5 +26,15 @@ runPyFile files = case head files of
   Just file -> "python " <> file
   Nothing -> missingFileCmd
 
+
+preludeEffectImports :: String
+preludeEffectImports = """module Main where
+
+import Prelude
+import Effect (Effect)
+import Effect.Class.Console (logShow)
+
+"""
+
 missingFileCmd :: String
 missingFileCmd = "echo \"Error: no filename supplied to run file command.\""

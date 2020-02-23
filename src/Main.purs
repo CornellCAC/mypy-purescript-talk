@@ -9,6 +9,7 @@ module Main where
 --TODO: add PureScript logo in intro
 --TODO: quicksort in purescript, shout out to Hoare?
 --TODO: Coconut, futhark
+--TODO: add a clear button to runCodeExample
 
 import Prelude hiding (div)
 
@@ -25,6 +26,7 @@ import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Concur.Spectacle (appear, codePane, deck, heading, slide)
 import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, source, theme, transition, transitionDuration)
+import Control.Alt ((<|>))
 import Data.Array ((:), head)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
@@ -79,7 +81,7 @@ codeHeading title = heading [
 codePanePs :: forall a. String -> Widget HTML a
 codePanePs src =
   codePane
-    [ P.style { "fontSize": "1.4rem" }
+    [ P.style { "fontSize": "1.2rem" }
     , lang "haskell"
     , source src
     ] []
@@ -87,7 +89,7 @@ codePanePs src =
 codePanePsRun :: forall a. String -> String -> Widget HTML a
 codePanePsRun codeId src = D.div [P._id codeId] [
     codePane
-      [ P.style { "fontSize": "1.4rem" }
+      [ P.style { "fontSize": "1.2rem" }
       , lang "haskell"
       , source src
       ] []
@@ -96,7 +98,7 @@ codePanePsRun codeId src = D.div [P._id codeId] [
 codePanePy :: forall a. String -> Widget HTML a
 codePanePy src =
   codePane
-    [ P.style { "fontSize": "1.4rem" }
+    [ P.style { "fontSize": "1.2rem" }
     , lang "python"
     , source src
     ] []
@@ -104,12 +106,14 @@ codePanePy src =
 codePanePyRun :: forall a. String -> String -> Widget HTML a
 codePanePyRun codeId src = D.div [P._id codeId] [
     codePane
-      [ P.style { "fontSize": "1.4rem" }
+      [ P.style { "fontSize": "1.2rem" }
       , lang "python"
       , source src
       ] []
   ]
 
+-- TODO: could allow it to take an array of codeIds to support multiple
+--     : panes, possibly even on different slides
 runCodePane ::
      String
   -> Array String
@@ -241,6 +245,7 @@ pureScripIntroSlides = [
         ]
       , D.text "The common syntax of this family is very concise"
       , D.text "(even compared to Python!)"
+      , D.text "Also, very different, so there is a learning curve"
       , D.text "PureScript aims for simplicity and primarily targets JavaScript"
       ]
     ]
@@ -265,9 +270,11 @@ pureScripIntroSlides = [
           ]
         ]
     ]
-  , cacSlide [h 4 "PureScript Functions", funsInPs]
+  , cacSlide [h 4 "PureScript functions", funsInPs]
   , cacSlide [h 4 "Partially supplied parameters (Currying)", curryInPs]
   , cacSlide [h 4 "Record types and type aliases", recInPs]
+  , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
+  , cacSlide [h 4 "Newtypes", newtypeInPs]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
@@ -542,7 +549,7 @@ curryInPs = D.div [P.style{
       ]
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = ["spago init", "spago install console newtype"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "curry.purs" fc0]
@@ -567,6 +574,59 @@ recInPs = D.div [P.style{
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "recType.purs" fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+noNewtypeInPs:: forall a. Widget HTML a
+noNewtypeInPs = listAppear [
+    D.text "Values of the same machine type may have different "
+      <|> italic "logical" <|> D.text " meanings" 
+  , D.text "Can be used for improved safety in argument passing"
+  , D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psNoNewtypeId psNoNewtype
+        ,   dyn $ runCodePane psNoNewtypeId initCmds mkCmd
+        ]
+      ]
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+
+newtypeInPs:: forall a. Widget HTML a
+newtypeInPs = listAppear [
+    D.text "Creates a static wrapper type"
+  , D.text "Not an alias, but still, no runtime overhead"
+  , D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psNewtypeId psNewtype
+        ,   dyn $ runCodePane psNewtypeId initCmds mkCmd
+        ]
+      ]
+  , D.text "Newtype has other uses as well: see instances"
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
       , command: Exec.runPsFile
       , meta: CCRS.mypyPursMeta
       }
@@ -755,7 +815,39 @@ main = do
 psRecordTypeId :: String
 psRecordTypeId = "psRecordType"
 
+psNoNewtype :: String
+psNoNewtype = """setContact :: String -> String -> Effect Unit
+setContact user email = do
+  logShow $ "Hello " <> user <> ", your email is set to " <> email
 
+main :: Effect Unit
+main = do
+  setContact "bob@foo.com" "Bob"
+"""
+
+psNoNewtypeId :: String
+psNoNewtypeId = "psNoNewtype"
+
+psNewtype :: String
+psNewtype = """import Data.Newtype (class Newtype, unwrap)
+
+newtype User = User String
+derive instance newtypeUser :: Newtype User _
+newtype Email = Email String
+derive instance newtypeEmail :: Newtype Email _
+
+setContact :: User -> Email -> Effect Unit
+setContact user email = do
+  logShow $ "Hello " <> unwrap user
+    <> ", your email is set to " <> unwrap email
+
+main :: Effect Unit
+main = do
+  setContact (Email "bob@foo.com") (User "Bob") 
+"""
+
+psNewtypeId :: String
+psNewtypeId = "psNewtype"
 
 slidesUrl :: String
 slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
