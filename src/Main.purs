@@ -1,7 +1,7 @@
 module Main where
 
 --TODO: add something to CCRS like oneshot but without the need for view components.
---TODO: PureScript: Elaborate on Function Call Diferences, Data (Sum) types,  Type Classes (Show as an example)
+--TODO: PureScript: Elaborate on Function Call Diferences
 --TODO: mypy literal type and comparison to Newtype in PureScript
 --TODO: Pursuit
 --TODO: fill in HOFs
@@ -11,6 +11,7 @@ module Main where
 --TODO: quicksort in purescript, shout out to Hoare?
 --TODO: Coconut, futhark
 --TODO: add a clear button to runCodeExample
+--TODO: add a linked page for non-spectacle mypy and codeworld sandbox
 
 import Prelude hiding (div)
 
@@ -277,6 +278,8 @@ pureScripIntroSlides = [
   , cacSlide [h 4 "Record types and type aliases", recInPs]
   , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
   , cacSlide [h 4 "Newtypes", newtypeInPs]
+  , cacSlide [h 4 "Algebraic Data Types", adtsInPs]
+  , cacSlide [h 4 "Type Classes", classesInPs]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
@@ -344,10 +347,12 @@ staticTypeSlides = [
       , D.span' [
             code "Either a b", D.text " is a ", code "Left", D.text " of ", code "a"
           , D.text " or a ", code "Right", D.text  " of ",  code "b"]
-      , code "Maybe b ≅ Either Unit b"
+      , D.div' [
+          codePanePs psUnit
+        , code "Maybe b ≅ Either Unit b"
+        ]
+      , code "data Either a b = Left a | Right b"
       , D.text "Usually Left holds an error value, but can be used in other ways"
-      , D.text "Either is an sum type, not supported in Python"
-      , D.text "Though you could make a class that behaves similarly"
       -- TODO: add either
       ]
     ]
@@ -611,7 +616,7 @@ noNewtypeInPs = listAppear [
         fc0 = fromMaybe "" (head fContents)
 
 
-newtypeInPs:: forall a. Widget HTML a
+newtypeInPs :: forall a. Widget HTML a
 newtypeInPs = listAppear [
     D.text "Not an alias, but a static wrapper (no runtime overhead)"
   , D.div [P.style{
@@ -635,6 +640,30 @@ newtypeInPs = listAppear [
       }
       where
         fc0 = fromMaybe "" (head fContents)
+
+adtsInPs :: forall a. Widget HTML a
+adtsInPs = listAppear [
+    D.text "ADTs are Sum Types + Product Types"
+  , D.text "Sums are like tagged unions of types"
+  , D.text "Product refers to the constructor arguments"
+  , code "data Maybe a = Nothing | Just a"
+  , code "data Tuple a b = Tuple a b"
+  , D.text "can build up types like " <|> code "type MayTup = Maybe (Tuple a b)"
+  , D.text "This is roughly the \"algebra\""
+  , D.text "Python does not have ADTs builtin, but theres a "
+    <|> link "https://pypi.org/project/algebraic-data-types/" "library"
+  , D.text "Unlike newtypes, data types do have runtime overhead"
+  ]
+
+classesInPs :: forall a. Widget HTML a
+classesInPs = listAppear [
+    D.text "Classes define interfaces (allow ad-hoc polymorphism)"
+  , D.text "An " <|> italic "instance"
+    <|> D.text " of a class can be given for a data type or newtype"
+  , codePanePs psShowMaybe
+  , D.text $ "A newtype can be used to circumvent that instances can only be "
+    <> "defined in the same module of either the data type or class definition"
+  ]
 
 smartConsInPs:: forall a. Widget HTML a
 smartConsInPs = listAppear [
@@ -902,6 +931,21 @@ parseUser :: String -> Maybe User
 parseUser s = case all isAlphaNum (toCharArray s) of
     true -> Just (User s)
     false -> Nothing
+"""
+
+psUnit :: String
+psUnit = """foreign import data Unit :: Type
+-- | `unit` is the sole inhabitant of the `Unit` type.
+foreign import unit :: Unit
+"""
+
+psShowMaybe :: String
+psShowMaybe = """class Show a where
+  show :: a -> String
+
+instance showMaybe :: Show a => Show (Maybe a) where
+  show (Just x) = "(Just " <> show x <> ")"
+  show Nothing = "Nothing"
 """
 
 psSmartConsId :: String
