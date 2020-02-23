@@ -1,7 +1,8 @@
 module Main where
 
 --TODO: add something to CCRS like oneshot but without the need for view components.
---TODO: PureScript: Basic Syntax: Records, Type Classes (Show as an example)
+--TODO: PureScript: Elaborate on Function Call Diferences, Data (Sum) types,  Type Classes (Show as an example)
+--TODO: mypy literal type and comparison to Newtype in PureScript
 --TODO: Pursuit
 --TODO: fill in HOFs
 --TODO: show do syntax, maybe with Effect and Maybe before writer
@@ -113,7 +114,8 @@ codePanePyRun codeId src = D.div [P._id codeId] [
   ]
 
 -- TODO: could allow it to take an array of codeIds to support multiple
---     : panes, possibly even on different slides
+--     : panes, possibly even on different slides: a good example would be
+--     | the newtype smart constructor example, and a separate main file to use it
 runCodePane ::
      String
   -> Array String
@@ -403,6 +405,7 @@ workingWithFunctions = [
       ]
     , curryHOFInPs
     ]
+  , cacSlide [h 4 "Newtypes: Smart Constructors", smartConsInPs]
   , cacSlide [ h 5 $ getWorkDone <> ": Writer Monad"]
   ]
   where
@@ -620,6 +623,8 @@ newtypeInPs = listAppear [
         ,   dyn $ runCodePane psNewtypeId initCmds mkCmd
         ]
       ]
+  , D.text "Avoid erroneous value construction by only exporting a "
+    <|> italic "smart constructor"
   , D.text "Newtype has other uses as well: see instances"
   ]
   where
@@ -628,6 +633,36 @@ newtypeInPs = listAppear [
     mkCmd fContents = {
         files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
       , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+smartConsInPs:: forall a. Widget HTML a
+smartConsInPs = listAppear [
+    D.text "Use explicit exports in module"
+  , D.text "Outside of module, " <|> code "User" <|> D.text " constructor not seen"
+  , D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psSmartConsId psSmartCons
+        ,   dyn $ runCodePane psSmartConsId initCmds mkCmd
+        ]
+      ]
+  , D.text "Smart constructor " <|> code "parseUser"
+    <|> D.text " is just a simple function" 
+  , D.text "Only " <|> code "parseUser" <|> D.text " and "
+      <|> code "User" <|> D.text " type visible"
+  , D.text "Note: there is runtime overhead in this smart constructor"
+  ]
+  where
+    initCmds = ["spago init", "spago install strings unicode"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "smartCons.purs" fc0]
+      , command: Exec.compilePsFile
       , meta: CCRS.mypyPursMeta
       }
       where
@@ -670,6 +705,11 @@ closingSlideTable= D.table [P.style {
   , D.tr [] [
       td $ D.text "Slide source"
     , td $ selfHref $ "https://github.com/CornellCAC/mypy-purescript-talk"
+    ]
+  , D.tr [] [
+      td $ D.text "# purescript channel on "
+        <|> link "https://functionalprogramming.slack.com" "FP Slack"
+    , td $ link "https://fpchat-invite.herokuapp.com/" "Get an Invite"
     ]
   ]
   where
@@ -848,6 +888,26 @@ main = do
 
 psNewtypeId :: String
 psNewtypeId = "psNewtype"
+
+psSmartCons :: String
+psSmartCons = """module User (User, parseUser) where
+
+import Data.Char.Unicode (isAlphaNum)
+import Data.Foldable (all)
+import Data.Maybe (Maybe(..))
+import Data.String.CodeUnits (toCharArray)
+
+newtype User = User String
+
+parseUser :: String -> Maybe User
+parseUser s = case all isAlphaNum (toCharArray s) of
+    true -> Just (User s)
+    false -> Nothing
+"""
+
+psSmartConsId :: String
+psSmartConsId = "psSmartCons"
+
 
 slidesUrl :: String
 slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
