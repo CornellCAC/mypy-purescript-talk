@@ -1,7 +1,6 @@
 module Main where
 
 --TODO: add something to CCRS like oneshot but without the need for view components.
---TODO: PureScript: Elaborate on Function Call Diferences
 --TODO: mypy literal type and comparison to Newtype in PureScript
 --TODO: Pursuit
 --TODO: fill in HOFs
@@ -274,6 +273,7 @@ pureScripIntroSlides = [
         ]
     ]
   , cacSlide [h 4 "PureScript functions", funsInPs]
+  , cacSlide [h 4 "PureScript function calls", funCallsInPs]
   , cacSlide [h 4 "Partially supplied parameters (Currying)", curryInPs]
   , cacSlide [h 4 "Record types and type aliases", recInPs]
   , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
@@ -470,9 +470,7 @@ zz = 2
 def foo(xx: int) -> int:
     return xx ++ yy ++ (zz + 1)
 
-
-foo(0)
-print(zz)
+print([foo(0), zz])
 """
 
 pyPureId :: String
@@ -482,11 +480,11 @@ pyImpure :: String
 pyImpure = """yy = 1
 zz = 2
 def foo(xx: int) -> int:
+    global zz
     zz = zz + 1
     return xx ++ yy ++ zz
 
-foo(0)
-print(zz)
+print([foo(0), zz])
 """
 
 pyImpureId :: String
@@ -543,6 +541,38 @@ funsInPs = D.div [P.style{
       }
       where
         fc0 = fromMaybe "" (head fContents)
+
+funCallsInPs :: forall a. Widget HTML a
+funCallsInPs = D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+  }] [
+    listAppear [
+        D.text "Traditional function call syntax is like: " <|> code "f(x,y)"
+      , D.text "In PureScript, Haskell, etc: " <|> code "f x y"
+        <|> D.text " or " <|> code "f (x) (y)"
+      , D.text "Nested calls can use () or "
+        <|> link "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Function#v:($)" "$"
+        <|> D.text " to specify argument grouping"
+      , code "f x y" <|> D.text " and we want " <|> code "y = g x" <|> D.text " then: "
+        <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x" 
+      ]
+  , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+      codePanePsRun psDoubleCallId psDoubleCall
+    , dyn $ runCodePane psDoubleCallId initCmds mkCmd
+    ]
+  ]
+  where
+    initCmds = ["spago init", "spago install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "doubleCall.purs" $ psDouble <> "\n" <> fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
 
 curryInPs :: forall a. Widget HTML a
 curryInPs = D.div [P.style{
@@ -739,6 +769,11 @@ closingSlideTable= D.table [P.style {
         <|> link "https://functionalprogramming.slack.com" "FP Slack"
     , td $ link "https://fpchat-invite.herokuapp.com/" "Get an Invite"
     ]
+  , D.tr [] [
+      td $ D.text "Try more PureScript examples online"
+    , td $ selfHref $ "http://try.purescript.org"
+    ]
+
   ]
   where
     tdThProps = [P.style{
@@ -829,6 +864,20 @@ double x = 2.0 * x
 
 psDoubleId :: String
 psDoubleId = "psDouble"
+
+psDoubleCall :: String
+psDoubleCall = """main :: Effect Unit
+main = do
+  logShow (double 3.0 4.0)
+  logShow $ double 3.0 4.0
+  logShow $ double 3.0 (2.0 * 2.0)
+  logShow $ double 3.0 $ 2.0 * 2.0
+  logShow (double 3.0 (2.0 * 2.0))
+"""
+
+psDoubleCallId :: String
+psDoubleCallId = "psDouble"
+
 
 psCurry :: String
 psCurry = """module Main where
