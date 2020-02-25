@@ -386,9 +386,9 @@ fpSlides = [
       , "... but modifying a variable outside of scope is prohibited)"
       ]
     staticFpSynergy = listAppearTxt [
-        "FP keeps types honest: recall Effect"
+        "FP adds a very important dimension to static typing: Effect"
       , "Effect is a type that enforces purity"
-      , "Both FP and Static types work"
+      , "Both FP and Static types work to keep code and code changes less surprising"
       ]
 
 workingWithFunctions :: forall a. Array (Widget HTML a)
@@ -413,15 +413,34 @@ workingWithFunctions = [
     , curryHOFInPs
     ]
   , cacSlide [h 4 "Newtypes: Smart Constructors", smartConsInPs]
-  , cacSlide [ h 5 $ getWorkDone <> ": Writer Monad"]
+  , cacSlide [ h 5 $ getWorkDone <> ": Monads", monadList, doNotation ]
   ]
   where
     getWorkDone = "Getting Work Done with Functions"
-    writerList = listAppearTxt [
-        "Wait, what's a monad? The reason FP sometimes gets ignored"
-      , "But we've already seen a few: Maybe and Effect"
-      , "For now, a Monad type wraps a computation and let's us use `do` syntax"
+    monadList = listAppear [
+        D.text "Wait, what's a monad? The reason FP sometimes gets ignored"
+      , D.text "But we've already seen a few: " <|> code "Maybe" <|> D.text " and "
+        <|> code "Effect"
+      , D.text "For now, a " <|> code "Monad"
+        <|> D.text " type wraps a computation and let's us use"
+        <|> code "do" <|> D.text " syntax"
+      , D.text "Can use " <|> code "State" <|> D.text " monad to allow isolated mutability"
+      , D.text "Left side of " <|> code " <- "
+        <|> D.text "is extracted value of monadic right side"
     ]
+    doNotation = D.div [P.style{
+        "display": "flex"
+      , "flex-direction": "row"
+      }] [
+        appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+            h 6 "Do for Effect"
+          , codePanePs psEffectDo
+          ]
+      , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+          h 6 "Do for Maybe"
+        , codePanePs psEffectMay
+        ]
+      ]
 
 endSlides :: forall a. Array (Widget HTML a)
 endSlides = [
@@ -950,6 +969,31 @@ main = do
 
 psCurryHOFId :: String
 psCurryHOFId = "psCurryHOF"
+
+psEffectDo :: String
+psEffectDo = """-- readString :: Effect String
+-- parseInt   :: String -> Maybe Int
+-- pure       :: a -> m a
+
+myEff :: Effect (Maybe Int)
+myEff = do
+  myStr <- readString
+  let intMay = parseInt myStr
+  pure intMay
+"""
+
+psEffectMay :: String
+psEffectMay = """-- f1 :: a -> Maybe b
+-- f2 :: b -> Maybe c
+-- f3 :: c -> Maybe d
+
+maybeDfromA :: Maybe d
+maybeDfromA a = do
+  bMay <- f1 a
+  cMay <- f2 bMay
+  f3 cMay
+"""
+
 
 psRecordType :: String
 psRecordType = """module Main where
