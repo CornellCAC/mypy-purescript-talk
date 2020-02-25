@@ -303,7 +303,8 @@ pureScripIntroSlides = [
         , D.text "Use Node.js for server or desktop coding"
         , D.div' [ D.text "Use another backend such as "
           , list [
-              link "https://github.com/andyarvanitis/purescript-native/tree/cpp" "C++"
+              link "https://github.com/purescript-python/purescript-python" "Python"
+            , link "https://github.com/andyarvanitis/purescript-native/tree/cpp" "C++"
             , link "https://github.com/andyarvanitis/purescript-native/tree/golang" "Go"
             , D.span' [link "https://github.com/csicar/pskt" "Kotlin"
               , D.text " — useful for interacting with Java or Android"]
