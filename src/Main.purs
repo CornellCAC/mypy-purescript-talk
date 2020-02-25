@@ -1,21 +1,18 @@
 module Main where
 
+--TODO: protocols compared to typeclasses?
+--TODO: TCO as a benefit of statically typed fp languages
 --TODO: add something to CCRS like oneshot but without the need for view components.
 --TODO: mypy literal type and comparison to Newtype in PureScript
 --TODO: Pursuit
---TODO: fill in HOFs
---TODO: show do syntax, maybe with Effect and Maybe before writer
 --TODO: show examples: metajelo, matlab
 --TODO: add PureScript logo in intro
 --TODO: quicksort in purescript, shout out to Hoare?
 --TODO: Coconut, futhark
 --TODO: add a clear button to runCodeExample
 --TODO: add a linked page for non-spectacle mypy and codeworld sandbox
-
--- TODO python: cover basic types and common type constructors
--- TODO python: two kinds of type hints
--- TODO python: ways to run mypy, mypy.ini (use example for arxiv.org)
- 
+--TODO: all design languages (e.g. UML, like docs, eventually lie)
+--    : is it possible to extract design diagrams from the types?
 
 import Prelude hiding (div)
 
@@ -33,7 +30,9 @@ import Concur.React.Run (runWidgetInDom)
 import Concur.Spectacle (appear, codePane, deck, heading, slide)
 import Concur.Spectacle.Props (Progress(..), Transition(..), bgColor, lang, preload, progress, textColor, source, theme, transition, transitionDuration)
 import Control.Alt ((<|>))
+import Control.MultiAlternative (orr)
 import Data.Array ((:), head)
+import Data.Foldable (intercalate)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
 import Data.Tuple (Tuple(..), fst, snd)
@@ -238,16 +237,56 @@ mypySlides = [
         , D.text $ "Typings were introduced in Python 3.5 and have been"
           <> "expanded in each subsequent release (now at 3.8)"
         , D.text "typings do not add any runtime overhead (they are ignored)"
+        , D.text "Spearheaded by Dropbox as their Python codebase grew"
+        , link "https://blogs.dropbox.com/tech/2019/09/our-journey-to-type-checking-4-million-lines-of-python/" $
+          "\"At our scale—millions of lines of Python—the dynamic "
+            <> "typing in Python made code needlessly hard to understand "
+            <> "and started to seriously impact productivity. \""
         ]
     ]
   , simpleMypySlide
-  , cacSlide [ h 4 "Some common types" ]
-]
+  , cacSlide [
+      h 4 "Some common types"
+    , mypyTypesTable
+    , appear_' $ D.span' [D.text "Much more at ", pythonTypingLink ]]
+  , mypyTwoStylesSlide
+  , cacSlide [
+      h 4 "Ignoring type errors"
+    , listAppearTxt [
+        "Some corners of Python still problematic for mypy"
+      , "Maybe you don't have time to think about a type"
+      , "Common when using highly dynamically-typed libraries"
+      , "Introducing # type: ignore"
+      ]
+    ]
+  , cacSlide [
+      h 4 "Ignoring type errors (continued)"
+    , appear_' $ D.div_ [] $ codePanePy pyFlask1
+    , listAppear [
+        D.span' [
+            D.text flaskIssue1
+          , link "https://github.com/python/mypy/issues/7218" " #7218"
+        ]
+      , D.span' [
+            D.text flaskIssue2
+          , link "https://github.com/python/mypy/issues/7187" " #7187"
+          , D.text " (still open)"
+        ]
+      ]
+    , appear_' $ D.div_ [] $ codePanePy pyFlask2
+    ]
+    -- , cacSlide ["Configuring mypy"] -- TODO: mypy.ini from arXiv
+  ]
+  where
+    flaskIssue1 = "Cannot type Flask view functions return "
+      <> "types in the natural way"
+    flaskIssue2 = "Union subtyping doesn't work with"
+      <> "covariant type constructors Tuple and Callable"
 
 simpleMypySlide :: forall a. Widget HTML a
 simpleMypySlide =
   cacSlide [
-      h 4 "A simple typings example"
+      h 4 "A simple example of using mypy"
     , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
     , dyn $ runCodePane pyBadTypeSimpleId [] mkCmd
     ]
@@ -260,6 +299,69 @@ simpleMypySlide =
       }
       where
         fc0 = fromMaybe "" (head fContents)
+
+mypyTypesTable :: forall a. Widget HTML a
+mypyTypesTable = appear_' $ D.table [P.style {
+    "fontSize" : "1.4rem"
+  , "border"   : "1px double " <> grey
+  }] [
+    appear_' $ D.tr [] [
+      td $ D.text "(Semi-)primitive types"
+    , td $ codeList $ ["str", "int", "float", "complex"]
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "Classes"
+    , td $ D.text "The type is just the class name"
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "Container types"
+    , td $ codeList ["Dict", "List", "Optional", "Tuple", "NamedTuple"]
+      <|> D.text " etc."
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "Union types"
+    , td $ code "Union[str, Foo]"
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "Type Alias"
+    , td $ code "Response = Tuple[Dict[str, Any], int, Dict[str, Any]]"
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "Any: not much on it's own"
+    , td $ code "Dict[str, Any]"
+    ]
+  , appear_' $ D.tr [] [
+      td $ codeList ["Newtype", "Literal"]
+    , td $ D.text "Logical types wrapping classes or values"
+    ]
+  , appear_' $ D.tr [] [
+      td $ D.text "function (λ) type"
+    , td $ code "Callable[[int], str]"
+        <|> D.text " is a function of " <|> code "(int) -> str"
+    ]
+  ]
+  where
+    tdThProps = [P.style{
+        "text-align" : "left"
+      , "border"     : "1px solid " <> grey
+      }]
+    td = D.td_ tdThProps
+
+mypyTwoStylesSlide :: forall a. Widget HTML a
+mypyTwoStylesSlide = cacSlide [
+    h 4 "Two ways to ascribe types"
+  , D.div [P.style{
+        "display": "flex"
+      , "flex-direction": "row"
+    }] [
+      appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePy pyTypeStyle1
+        ]
+    , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePy pyTypeStyle2
+        ]
+    ]
+  ]
 
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
@@ -328,12 +430,18 @@ staticTypeSlides :: forall a. Array (Widget HTML a)
 staticTypeSlides = [
     cacSlide [
         h 4 "How do types help us?"
-      , listTxt [
-          "Type annotations are (good) documentation"
-        , "Static typing make its safer (and quicker!) to change code"
-        , "Static typing make us think about design"
+      , listAppear [
+          D.div' [
+              D.text "Type annotations are (good) documentation"
+            , listTxt ["We almost never write enough documentation!"]
+            ]
+        , D.div' [
+            D.text "Static typing make its safer (and quicker!) to change code"
+          , listTxt ["Some up-front cost", "Save time in the long run"]
+        , D.text "Static typing make us think about design"
         ]
       ]
+    ]
   , cacSlide [
       h 4 "Types as Documentation"
     , listAppearTxt [
@@ -341,7 +449,6 @@ staticTypeSlides = [
       , "Reality: code changes, sometimes docs don't"
       , "Types become very recognizeable once familiar"
       , "(Usually much faster than reading docs)"
-      , "TODO: add an example here"
       ]
     ]
   , cacSlide [
@@ -356,7 +463,16 @@ staticTypeSlides = [
       ]
     ]
   , cacSlide [
-        h 4 "Types Guide Design (TODO)"
+        h 4 "Types Guide Design"
+      , listAppearTxt [
+          "ADTs and allow us to combine and shape our data models"
+        , "Type Classes allow us to organize and re-use them"
+        , "In pure languages, no difficult-to-track global mutations"
+        ]
+      , appear_' $ D.div' [
+          codePanePs wierdType
+        , listTxt "Even variable names aren't needed"
+        ]
       ]
   , cacSlide [
         h 4 "Some type systems are more honest than others"
@@ -489,13 +605,18 @@ endSlides = [
   , cacSlide [ h 4 "Another Safe Language: Coconut", coconutList] --TODO add monty python scene
   ]
   where
-    rustList = listAppearTxt [
+    rustList = listTxt [
         "Uses a borrow checker to enforce data ownership rules"
       , "Generally a highly typed language, but no purity checks"
       , "Pro for HPC: same level of performance as C or C++"
       , "Con for HPC: Can't call C++ directly in FFI"
       ]
-    coconutList = listAppearTxt [] -- TODO
+    coconutList = list [
+        D.text "Has ADTs built in"
+      , D.text "Supports Tail-Call-Optimization (like PureScript)"
+      , D.text "All Python code is valid Coconut code"
+      , selfHref "http://coconut-lang.org/"
+    ] -- TODO
 
 followAlongSlide :: forall a. Widget HTML a
 followAlongSlide = cacSlide [
@@ -522,34 +643,6 @@ whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList]
 
 pureVsImpure1 :: forall a. Widget HTML a
 pureVsImpure1 = cacSlide [h 4 "Pure vs Impure", pureVsImpurePy]
-
-
-
-pyPure :: String
-pyPure = """yy = 1
-zz = 2
-def foo(xx: int) -> int:
-    return xx ++ yy ++ (zz + 1)
-
-print([foo(0), zz])
-"""
-
-pyPureId :: String
-pyPureId = "pyPure"
-
-pyImpure :: String
-pyImpure = """yy = 1
-zz = 2
-def foo(xx: int) -> int:
-    global zz
-    zz = zz + 1
-    return xx ++ yy ++ zz
-
-print([foo(0), zz])
-"""
-
-pyImpureId :: String
-pyImpureId = "pyImpure"
 
 pureVsImpurePy :: forall a. Widget HTML a
 pureVsImpurePy = D.div [P.style{
@@ -924,35 +1017,127 @@ flexGrow fg = P.style {"flex-grow" : show fg}
 code :: forall a. String -> Widget HTML a
 code = D.code' <<< pure <<< D.text
 
+codeList :: forall a. Array String -> Widget HTML a
+codeList cs = orr $
+  intercalate (pure $ D.text ", ") (pure <<< code <$> cs)
+
 bold :: forall a. String -> Widget HTML a
 bold s = D.span_ [P.style {"fontWeight" : "bold"} ] $ D.text s
 
 italic :: forall a. String -> Widget HTML a
 italic s = D.span_ [P.style {"fontWeight" : "italic"} ] $ D.text s
 
+
+-- -- -- -- Python code snippets -- -- -- --
+
 pyOptionStr :: String
 pyOptionStr = """if listing_path is not None:
     bibtex_path = get_dblp_bibtex_path(listing_path)
 else:
-    return None
-"""
-
--- -- -- -- Python code snippets -- -- -- --
+    return None"""
 
 pyBadTypeSimple :: String
 pyBadTypeSimple = """def foo(xx: int) -> str:
+    return xx ++ 1"""
+
+pyTypeStyle1 :: String
+pyTypeStyle1 = """def foo(xx: int) -> int:
     return xx ++ 1
-"""
+yy: int = foo(3)
+print(yy)"""
+
+pyTypeStyle1Id :: String
+pyTypeStyle1Id = "pyTypeStyle1"
+
+pyTypeStyle2 :: String
+pyTypeStyle2 = """def foo(xx):        # type: (int) -> int
+    return xx ++ 1
+
+yy = foo(3)         # type: int
+print(yy)"""
 
 pyBadTypeSimpleId :: String
 pyBadTypeSimpleId = "badTypeSimple"
 
+pyNewtype :: String
+pyNewtype = """from typing import NewType
+
+UserId = NewType('UserId', int)
+
+def name_by_id(user_id: UserId) -> str:
+    return 'Foo Bar'
+
+UserId('user')          # Fails type check
+name_by_id(42)          # Fails type check
+name_by_id(UserId(42))  # OK
+print(UserId(5) + 1)    # OK"""
+
+pyNewtypeId :: String
+pyNewtypeId = "pyNewtype"
+
+pyLiteral :: String
+pyLiteral = """from typing_extensions import Literal
+
+def accepts_only_four(x: Literal[4]) -> None:
+    pass
+
+accepts_only_four(4)   # OK
+accepts_only_four(19)  # Rejected"""
+
+pyLiteralId :: String
+pyLiteralId = "pyLiteral"
+
+pyFlask1 :: String
+pyFlask1 = """from typing import Union
+from flask import Flask, redirect, render_template
+from werkzeug import Response
+
+app = Flask(__name__)
+
+@app.route("/")
+def index() -> Union[Response, str]:
+    if True:
+        return redirect("/foo")           # is a Response
+    return render_template("index.html")  # is a str"""
+
+pyFlask2 :: String
+pyFlask2 = """        return redirect("/foo")           # type: ignore
+    return render_template("index.html")  # type: ignore"""
+
+pyPure :: String
+pyPure = """yy = 1
+zz = 2
+def foo(xx: int) -> int:
+    return xx ++ yy ++ (zz + 1)
+
+print([foo(0), zz])
+"""
+
+pyPureId :: String
+pyPureId = "pyPure"
+
+pyImpure :: String
+pyImpure = """yy = 1
+zz = 2
+def foo(xx: int) -> int:
+    global zz
+    zz = zz + 1
+    return xx ++ yy ++ zz
+
+print([foo(0), zz])
+"""
+
+pyImpureId :: String
+pyImpureId = "pyImpure"
+
 -- -- -- -- PureScript code snippets -- -- -- --
+
+wierdType :: String
+wierdType = "rectangleArea :: Number -> Number -> String -> Number"
 
 psFunction :: String
 psFunction = """functionName :: InputType1 -> InputType2 -> ... -> OutputType
-functionName input1 input2 = ...
-"""
+functionName input1 input2 = ..."""
 
 psDouble :: String
 psDouble = """module Main where
@@ -960,8 +1145,7 @@ psDouble = """module Main where
 import Prelude
 
 double :: Number -> Number
-double x = 2.0 * x
-"""
+double x = 2.0 * x"""
 
 psDoubleId :: String
 psDoubleId = "psDouble"
@@ -973,8 +1157,7 @@ main = do
   logShow $ mul 3.0 4.0
   logShow $ mul 3.0 (2.0 * 2.0)
   logShow $ mul 3.0 $ 2.0 * 2.0
-  logShow (mul 3.0 (2.0 * 2.0))
-"""
+  logShow (mul 3.0 (2.0 * 2.0))"""
 
 psMulCallId :: String
 psMulCallId = "psMul"
@@ -982,8 +1165,7 @@ psMulCallId = "psMul"
 
 mulFunPs :: String
 mulFunPs = """mul :: Number -> Number -> Number
-mul x y = x * y
-"""
+mul x y = x * y"""
 
 
 psCurry :: String
@@ -1001,8 +1183,7 @@ mul5 = mul 5
 main :: Effect Unit
 main = do
   logShow (mul 3.0 4.0)
-  logShow (mul5 4.0)
-"""
+  logShow (mul5 4.0)"""
 
 psCurryId :: String
 psCurryId = "psCurry"
@@ -1017,8 +1198,7 @@ import Effect.Class.Console (logShow)
 
 main :: Effect
 main = do
-  logShow $ map (* 2) [0, 1, 2, 3]
-"""
+  logShow $ map (* 2) [0, 1, 2, 3]"""
 
 psCurryHOFId :: String
 psCurryHOFId = "psCurryHOF"
@@ -1032,8 +1212,7 @@ myEff :: Effect (Maybe Int)
 myEff = do
   myStr <- readString
   let intMay = parseInt myStr
-  pure intMay
-"""
+  pure intMay"""
 
 psEffectMay :: String
 psEffectMay = """-- f1 :: a -> Maybe b
@@ -1044,8 +1223,7 @@ maybeDfromA :: Maybe d
 maybeDfromA a = do
   bMay <- f1 a
   cMay <- f2 bMay
-  f3 cMay
-"""
+  f3 cMay"""
 
 
 psRecordType :: String
@@ -1061,8 +1239,7 @@ myPoint = {x: 0.0, y: 1.5}
 
 main :: Effect
 main = do
-  logShow myPoint
-"""
+  logShow myPoint"""
 
 psRecordTypeId :: String
 psRecordTypeId = "psRecordType"
@@ -1074,8 +1251,7 @@ setContact user email = do
 
 main :: Effect Unit
 main = do
-  setContact "bob@foo.com" "Bob"
-"""
+  setContact "bob@foo.com" "Bob" """
 
 psNoNewtypeId :: String
 psNoNewtypeId = "psNoNewtype"
@@ -1095,8 +1271,7 @@ setContact user email = do
 
 main :: Effect Unit
 main = do
-  setContact (Email "bob@foo.com") (User "Bob") 
-"""
+  setContact (Email "bob@foo.com") (User "Bob")"""
 
 psNewtypeId :: String
 psNewtypeId = "psNewtype"
@@ -1114,22 +1289,20 @@ newtype User = User String
 parseUser :: String -> Maybe User
 parseUser s = case all isAlphaNum (toCharArray s) of
     true -> Just (User s)
-    false -> Nothing
-"""
+    false -> Nothing"""
 
 psMatch :: String
 psMatch = """import Data.Maybe (Maybe(..))
 
 yepString :: Maybe String -> String
 yepString sm = case sm of
-  Just s -> "yep, " <> s 
+  Just s -> "yep, " <> s
   Nothing -> "nope"
 
 main :: Effect Unit
 main = do
   log $ yepString (Just "foo")
-  log $ yepString Nothing
-"""
+  log $ yepString Nothing"""
 
 psMatchId :: String
 psMatchId = "psMatch"
@@ -1139,8 +1312,7 @@ psMatchId = "psMatch"
 psUnit :: String
 psUnit = """foreign import data Unit :: Type
 -- | `unit` is the sole inhabitant of the `Unit` type.
-foreign import unit :: Unit
-"""
+foreign import unit :: Unit"""
 
 psShowMaybe :: String
 psShowMaybe = """class Show a where
@@ -1148,16 +1320,19 @@ psShowMaybe = """class Show a where
 
 instance showMaybe :: Show a => Show (Maybe a) where
   show (Just x) = "(Just " <> show x <> ")"
-  show Nothing = "Nothing"
-"""
+  show Nothing = "Nothing" """
 
 psSmartConsId :: String
 psSmartConsId = "psSmartCons"
 
-
 slidesUrl :: String
 slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
 
+pythonTypingUrl :: String
+pythonTypingUrl = "https://docs.python.org/3/library/typing.html"
+
+pythonTypingLink :: forall a. Widget HTML a
+pythonTypingLink =  selfHref pythonTypingUrl
 
 docElemById :: String -> Effect (Maybe DOM.Element)
 docElemById id = do
