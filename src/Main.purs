@@ -12,6 +12,11 @@ module Main where
 --TODO: add a clear button to runCodeExample
 --TODO: add a linked page for non-spectacle mypy and codeworld sandbox
 
+-- TODO python: cover basic types and common type constructors
+-- TODO python: two kinds of type hints
+-- TODO python: ways to run mypy, mypy.ini (use example for arxiv.org)
+ 
+
 import Prelude hiding (div)
 
 import Colors (black, blue, white)
@@ -37,6 +42,7 @@ import Effect.Console (log)
 import Effect (Effect)
 import Talk.CCRS as CCRS
 import Talk.Exec as Exec
+import Talk.Exec (spago, spagoInit)
 import Web.DOM (Element) as DOM
 import Web.DOM.Element as ELE
 import Web.DOM.NonElementParentNode (getElementById) as DOM
@@ -215,11 +221,45 @@ slides =
         ]
     ]
   ]
-  <> pureScripIntroSlides
   <> staticTypeSlides
+  <> mypySlides
+  <> pureScripIntroSlides
   <> fpSlides
   <> endSlides
   <> [ cacSlide [ closingSlideTable ] ]
+
+mypySlides :: forall a. Array (Widget HTML a)
+mypySlides = [
+  cacSlide [ h 4 "What is mypy?",
+    listAppear [
+          D.text "A static type checker for Python " <|> link "" "type annotations"
+        , link "https://github.com/facebook/pyre-check" "pyre-check"
+          <|> D.text " from Facebook is another, focused on performance"
+        , D.text $ "Typings were introduced in Python 3.5 and have been"
+          <> "expanded in each subsequent release (now at 3.8)"
+        , D.text "typings do not add any runtime overhead (they are ignored)"
+        ]
+    ]
+  , simpleMypySlide
+  , cacSlide [ h 4 "Some common types" ]
+]
+
+simpleMypySlide :: forall a. Widget HTML a
+simpleMypySlide =
+  cacSlide [
+      h 4 "A simple typings example"
+    , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
+    , dyn $ runCodePane pyBadTypeSimpleId [] mkCmd
+    ]
+  where
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "foo.py" fc0]
+      , command: Exec.runMypyFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
 
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
@@ -896,6 +936,18 @@ else:
     return None
 """
 
+-- -- -- -- Python code snippets -- -- -- --
+
+pyBadTypeSimple :: String
+pyBadTypeSimple = """def foo(xx: int) -> str:
+    return xx ++ 1
+"""
+
+pyBadTypeSimpleId :: String
+pyBadTypeSimpleId = "badTypeSimple"
+
+-- -- -- -- PureScript code snippets -- -- -- --
+
 psFunction :: String
 psFunction = """functionName :: InputType1 -> InputType2 -> ... -> OutputType
 functionName input1 input2 = ...
@@ -1146,8 +1198,3 @@ getShaPfx len inStr = take len $ Crypto.toString digest
     digest = Crypto.hash Crypto.SHA256 inStr
  -}
 
-spago :: String -> String
-spago scmd = "spago -C " <> scmd
-
-spagoInit :: String
-spagoInit = spago "init --force"

@@ -23,14 +23,7 @@ compilePsFile files = case head files of
 spagoCmd :: String -> String -> String
 spagoCmd cmd file =
   "export TERM=dumb && rm -f ./src/Main.purs && ln -s $PWD/"
-  <> file <> " ./src/Main.purs && spago " <> cmd
-
--- | Assumes the first file is the file to be run
-runPyFile :: Array String -> String
-runPyFile files = case head files of
-  Just file -> "python " <> file
-  Nothing -> missingFileCmd
-
+  <> file <> " ./src/Main.purs && " <> spago cmd
 
 preludeEffectImports :: String
 preludeEffectImports = """module Main where
@@ -51,3 +44,22 @@ mkSysJobIdWithInits cmds = do
   _ <- CCRS.runSysCommands CCRS.mypyPursMeta jobId cmds
   pure jobId
 
+
+spago :: String -> String
+spago scmd = "spago -C " <> scmd
+
+spagoInit :: String
+spagoInit = spago "init --force"
+
+-- -- -- mypy or python related commands below -- -- --
+
+-- | Assumes the first file is the file to be run
+runPyFile :: Array String -> String
+runPyFile files = case head files of
+  Just file -> "python " <> file
+  Nothing -> missingFileCmd
+
+runMypyFile :: Array String -> String
+runMypyFile files = case head files of
+  Just file -> "mypy " <> file
+  Nothing -> missingFileCmd
