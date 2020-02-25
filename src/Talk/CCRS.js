@@ -12,7 +12,7 @@ var mypyPursMetaJson = {
   "image": [],
   "binds": [],
   "overlay": [],
-  "user": "test0",
+  "user": "mypypurs",
   "address": [],
   "hostname": [],
   "url": window.location.href
@@ -75,3 +75,28 @@ exports.makeCmdHandler = function (cmdVar) {
 exports.makeFileContents = function (fileDict) {
   return CCRS.makeFileContents(fileDict);
 };
+
+/*
+  @JSExport
+  def runSysCommands(
+    metaIn: SysJobMetaData
+  , jobId: JobId
+  , commands: js.Array[String]
+  ): Unit = {
+    val cc = exec(
+      commands.map(cmd => OneShot(jobId, cmd, metaIn)).toList
+    ).impure.run(_ => ())
+    cc.cancel
+  }
+*/
+
+exports.runSysCommands = function (meta) {
+  return function (jobId) {
+    return function (commands) {
+      return function () { // Effect thunk
+        return CCRS.runSysCommands(meta, jobId, commands);
+      };
+    };
+  };
+};
+

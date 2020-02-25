@@ -27,6 +27,8 @@ foreign import data JobId :: Type
 
 foreign import data FileContents :: Type
 
+-- foreign import data RxListRunResult :: Type
+
 foreign import mypyPursMeta :: SysJobMetaData
 
 foreign import mkJobId :: Effect JobId
@@ -81,6 +83,12 @@ type ExecFileCmd = {
   , meta :: SysJobMetaData
   }
 
+
+foreign import runSysCommands ::
+     SysJobMetaData
+  -> JobId
+  -> Array String
+  -> Effect Unit
 
 removeChildren :: Node -> Effect Unit
 removeChildren node = do

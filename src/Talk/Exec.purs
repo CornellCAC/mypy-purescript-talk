@@ -2,8 +2,12 @@ module Talk.Exec where
 
 import Prelude
 
+import Talk.CCRS as CCRS
 import Data.Array (head)
 import Data.Maybe (Maybe(..))
+import Effect (Effect)
+-- import Effect.Class (liftEffect)
+-- import Effect.Console (log)
 
 -- | Assumes the first file is the file to be run
 runPsFile :: Array String -> String
@@ -17,8 +21,9 @@ compilePsFile files = case head files of
   Nothing -> missingFileCmd
 
 spagoCmd :: String -> String -> String
-spagoCmd cmd file = "rm ./src/Main.purs && ln -s $PWD/" <> file
-  <> " ./src/Main.purs && spago " <> cmd
+spagoCmd cmd file =
+  "export TERM=dumb && rm -f ./src/Main.purs && ln -s $PWD/"
+  <> file <> " ./src/Main.purs && spago " <> cmd
 
 -- | Assumes the first file is the file to be run
 runPyFile :: Array String -> String
@@ -32,9 +37,17 @@ preludeEffectImports = """module Main where
 
 import Prelude
 import Effect (Effect)
-import Effect.Class.Console (logShow)
+import Effect.Class.Console (log, logShow)
 
 """
 
 missingFileCmd :: String
 missingFileCmd = "echo \"Error: no filename supplied to run file command.\""
+
+-- | Convenience function
+mkSysJobIdWithInits :: Array String -> Effect CCRS.JobId
+mkSysJobIdWithInits cmds = do
+  jobId <- CCRS.mkJobId
+  _ <- CCRS.runSysCommands CCRS.mypyPursMeta jobId cmds
+  pure jobId
+

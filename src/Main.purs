@@ -122,13 +122,13 @@ runCodePane ::
   -> (Array String -> CCRS.ExecFileCmd)
   -> Signal HTML (Tuple (Maybe CCRS.JobId) String)
 runCodePane codeId initCmds mkFileCmd = step (Tuple Nothing "") do
-  jobId <- liftEffect CCRS.mkJobId
+  jobId <- liftEffect $ Exec.mkSysJobIdWithInits initCmds
   pure $ go $ Tuple (Just jobId) ""
   where
     go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
     go ctrl = step ctrl $ D.div' [
         do
-          let jobIdEf = maybe CCRS.mkJobId pure jobIdMay
+          let jobIdEf = maybe (Exec.mkSysJobIdWithInits initCmds) pure jobIdMay
           jobId <- liftEffect jobIdEf
           codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
           codeTxt <- liftEffect codeEf
@@ -279,6 +279,7 @@ pureScripIntroSlides = [
   , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
   , cacSlide [h 4 "Newtypes", newtypeInPs]
   , cacSlide [h 4 "Algebraic Data Types", adtsInPs]
+  , cacSlide [h 4 "Extract data safely", matchInPs]
   , cacSlide [h 4 "Type Classes", classesInPs]
   ]
 
@@ -528,7 +529,7 @@ funsInPs = D.div [P.style{
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       h 6 "Simple example: double"
     , codePanePsRun psDoubleId psDouble
-    , dyn $ runCodePane psDoubleId ["spago init"] mkCmd
+    , dyn $ runCodePane psDoubleId [spagoInit] mkCmd
     , italic "Note: need 2.0 (float) and not 2 (Int)"
     ]
   ]
@@ -558,15 +559,16 @@ funCallsInPs = D.div [P.style{
         <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x" 
       ]
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-      codePanePsRun psDoubleCallId psDoubleCall
-    , dyn $ runCodePane psDoubleCallId initCmds mkCmd
+      codePanePsRun psMulCallId psMulCall
+    , dyn $ runCodePane psMulCallId initCmds mkCmd
     ]
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
-        files: [Tuple "doubleCall.purs" $ psDouble <> "\n" <> fc0]
+        files: [Tuple "mulCall.purs" $
+          Exec.preludeEffectImports <> mulFunPs <> "\n" <> fc0]
       , command: Exec.runPsFile
       , meta: CCRS.mypyPursMeta
       }
@@ -582,13 +584,13 @@ curryInPs = D.div [P.style{
     appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
         codePanePsRun psCurryId psCurry
       , dyn $ runCodePane psCurryId initCmds mkCmd
-      , italic $ "\"Currying is a process in functional programming "
+      , italic $ "\"Currying is a process "
         <> "in which we can transform a function with multiple "
-        <> "arguments into a sequence of nesting functions. \""
+        <> "arguments into a sequence of nested functions. \""
       ]
   ]
   where
-    initCmds = ["spago init", "spago install console newtype"]
+    initCmds = [spagoInit, spago "install console newtype"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "curry.purs" fc0]
@@ -609,7 +611,7 @@ recInPs = D.div [P.style{
       ]
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "recType.purs" fc0]
@@ -635,7 +637,7 @@ noNewtypeInPs = listAppear [
       ]
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
@@ -661,7 +663,7 @@ newtypeInPs = listAppear [
   , D.text "Newtype has other uses as well: see instances"
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
@@ -684,6 +686,33 @@ adtsInPs = listAppear [
     <|> link "https://pypi.org/project/algebraic-data-types/" "library"
   , D.text "Unlike newtypes, data types do have runtime overhead"
   ]
+
+matchInPs :: forall a. Widget HTML a
+matchInPs = listAppear [
+    code "case" <|> D.text " allows us to extract data from ADT values"
+  , D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psMatchId psMatch
+        ,   dyn $ runCodePane psMatchId initCmds mkCmd
+        ]
+      ]
+  , D.text "If not all constructors are covered, get:" <|> D.br'
+    <|> D.text "case expression could not be determined to cover all inputs"
+  ]
+  where
+    initCmds = [spagoInit, spago "install console maybe"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "match.purs" $ Exec.preludeEffectImports <> fc0]
+      , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
 
 classesInPs :: forall a. Widget HTML a
 classesInPs = listAppear [
@@ -712,11 +741,11 @@ smartConsInPs = listAppear [
         ]
       ]
   , D.text "Smart constructor " <|> code "parseUser"
-    <|> D.text " is just a simple function" 
+    <|> D.text " is just a simple function"
   , D.text "Note: there is runtime overhead in this smart constructor"
   ]
   where
-    initCmds = ["spago init", "spago install strings unicode"]
+    initCmds = [spagoInit, spago "install strings unicode"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "smartCons.purs" fc0]
@@ -737,7 +766,7 @@ curryHOFInPs = D.div [P.style{
       ]
   ]
   where
-    initCmds = ["spago init", "spago install console"]
+    initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "curryHOF.purs" fc0]
@@ -865,18 +894,24 @@ double x = 2.0 * x
 psDoubleId :: String
 psDoubleId = "psDouble"
 
-psDoubleCall :: String
-psDoubleCall = """main :: Effect Unit
+psMulCall :: String
+psMulCall = """main :: Effect Unit
 main = do
-  logShow (double 3.0 4.0)
-  logShow $ double 3.0 4.0
-  logShow $ double 3.0 (2.0 * 2.0)
-  logShow $ double 3.0 $ 2.0 * 2.0
-  logShow (double 3.0 (2.0 * 2.0))
+  logShow (mul 3.0 4.0)
+  logShow $ mul 3.0 4.0
+  logShow $ mul 3.0 (2.0 * 2.0)
+  logShow $ mul 3.0 $ 2.0 * 2.0
+  logShow (mul 3.0 (2.0 * 2.0))
 """
 
-psDoubleCallId :: String
-psDoubleCallId = "psDouble"
+psMulCallId :: String
+psMulCallId = "psMul"
+
+
+mulFunPs :: String
+mulFunPs = """mul :: Number -> Number -> Number
+mul x y = x * y
+"""
 
 
 psCurry :: String
@@ -886,12 +921,15 @@ import Prelude
 import Effect (Effect)
 import Effect.Class.Console (logShow)
 
-mul :: Number -> Number -> Number
-mul x y = x * y
+""" <> mulFunPs
+    <> """
+mul5 :: Number -> Number
+mul5 = mul 5
 
 main :: Effect Unit
 main = do
   logShow (mul 3.0 4.0)
+  logShow (mul5 4.0)
 """
 
 psCurryId :: String
@@ -982,6 +1020,25 @@ parseUser s = case all isAlphaNum (toCharArray s) of
     false -> Nothing
 """
 
+psMatch :: String
+psMatch = """import Data.Maybe (Maybe(..))
+
+yepString :: Maybe String -> String
+yepString sm = case sm of
+  Just s -> "yep, " <> s 
+  Nothing -> "nope"
+
+main :: Effect Unit
+main = do
+  log $ yepString (Just "foo")
+  log $ yepString Nothing
+"""
+
+psMatchId :: String
+psMatchId = "psMatch"
+
+
+
 psUnit :: String
 psUnit = """foreign import data Unit :: Type
 -- | `unit` is the sole inhabitant of the `Unit` type.
@@ -1044,3 +1101,9 @@ getShaPfx len inStr = take len $ Crypto.toString digest
   where
     digest = Crypto.hash Crypto.SHA256 inStr
  -}
+
+spago :: String -> String
+spago scmd = "spago -C " <> scmd
+
+spagoInit :: String
+spagoInit = spago "init --force"
