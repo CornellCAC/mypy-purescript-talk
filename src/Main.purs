@@ -52,6 +52,7 @@ import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
 
 type CtrlSignal v a = a -> Signal v a
+type ArrayWidgMerge = forall a. Array (Widget HTML a) -> Widget HTML a
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -107,6 +108,7 @@ codePanePy src =
     [ P.style { "fontSize": "1.2rem" }
     , lang "python"
     , source src
+    -- , theme "light"
     ] []
 
 codePanePyRun :: forall a. String -> String -> Widget HTML a
@@ -193,7 +195,7 @@ cacHeader = div [P.style {
       [D.text "Center for Advanced Computing"]
   ]
 
-cacSlide :: forall a. Array (Widget HTML a) -> Widget HTML a
+cacSlide :: ArrayWidgMerge
 cacSlide es = slide [bgColor white] (cacHeader : es)
 
 
@@ -215,17 +217,34 @@ slides =
     , listAppearTxt [
           "Safety tools traditionally used for mission critical projects"
         , "Increasingly used across industries to mitigate refactor cost"
-        , "This is useful for any project, including Science"
+        , "This is useful for many projects, including in Science"
         , "Also: increase reusability by other scientists"
         ]
     ]
+  , howTypesHelpSlide listAppear
   ]
-  <> staticTypeSlides
   <> mypySlides
   <> pureScripIntroSlides
+  <> staticTypeSlides
   <> fpSlides
   <> endSlides
   <> [ cacSlide [ closingSlideTable ] ]
+
+howTypesHelpSlide :: ArrayWidgMerge -> forall a. Widget HTML a
+howTypesHelpSlide listWidg = cacSlide [
+    h 4 "How do types help us?"
+  , listWidg [
+      D.div' [
+        D.text "Type annotations are (good) documentation"
+      , listTxt ["We almost never write enough documentation!"]
+      ]
+    , D.div' [
+        D.text "Static typing make its safer (and quicker!) to change code"
+      , listTxt ["Some up-front cost", "Save time in the long run"]
+      , D.text "Static typing make us think about design"
+      ]
+    ]
+  ]
 
 mypySlides :: forall a. Array (Widget HTML a)
 mypySlides = [
@@ -236,7 +255,7 @@ mypySlides = [
           <|> D.text " from Facebook is another, focused on performance"
         , D.text $ "Typings were introduced in Python 3.5 and have been"
           <> "expanded in each subsequent release (now at 3.8)"
-        , D.text "typings do not add any runtime overhead (they are ignored)"
+        , D.text "Typings do not add any runtime overhead (usually)"
         , D.text "Spearheaded by Dropbox as their Python codebase grew"
         , link "https://blogs.dropbox.com/tech/2019/09/our-journey-to-type-checking-4-million-lines-of-python/" $
           "\"At our scale—millions of lines of Python—the dynamic "
@@ -244,7 +263,7 @@ mypySlides = [
             <> "and started to seriously impact productivity. \""
         ]
     ]
-  , simpleMypySlide
+  , mypySimpleSlide
   , cacSlide [
       h 4 "Some common types"
     , mypyTypesTable
@@ -276,6 +295,7 @@ mypySlides = [
     , appear_' $ D.div_ [] $ codePanePy pyFlask2
     ]
     -- , cacSlide ["Configuring mypy"] -- TODO: mypy.ini from arXiv
+    , mypyLiteralSlide
   ]
   where
     flaskIssue1 = "Cannot type Flask view functions return "
@@ -283,8 +303,8 @@ mypySlides = [
     flaskIssue2 = "Union subtyping doesn't work with"
       <> "covariant type constructors Tuple and Callable"
 
-simpleMypySlide :: forall a. Widget HTML a
-simpleMypySlide =
+mypySimpleSlide :: forall a. Widget HTML a
+mypySimpleSlide =
   cacSlide [
       h 4 "A simple example of using mypy"
     , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
@@ -363,6 +383,43 @@ mypyTwoStylesSlide = cacSlide [
     ]
   ]
 
+mypyLiteralSlide :: forall a. Widget HTML a
+mypyLiteralSlide =
+  cacSlide [
+      h 4 "Literal types in Python"
+    , listAppear [
+        D.text "Sometimes called " <|> italic "singleton types"
+      , D.text "Types constructed from a single value"
+      , D.text "No runtime overhead"
+      ]
+    , appear_' $ D.div' [
+        codePanePyRun pyLiteralId pyLiteral
+      , dyn $ runCodePane pyLiteralId [] mkCmd
+      ]
+    , listAppear [ D.div' [
+        D.text "Not all values can be used, e.g.: "
+      , listAppear [
+          codeList ["float", "complex"]
+        , D.text "anything not a value"
+        , D.text "object instances"
+        , D.text "some other caveats"
+        ]
+      ]]
+    , appear_' $ list [ D.div' [
+          D.text "Not available in PureScript directly, though planned"
+        , listTxt ["Can use Symbols for Strings, or a custom typeclass"]
+        ]]
+    ]
+  where
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "literal.py" fc0]
+      , command: Exec.runMypyFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
     cacSlide [ h 4 "Why PureScript?",
@@ -421,6 +478,7 @@ pureScripIntroSlides = [
   , cacSlide [h 4 "Record types and type aliases", recInPs]
   , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
   , cacSlide [h 4 "Newtypes", newtypeInPs]
+  , cacSlide [h 4 "NewTypes in mypy", newtypeInPy]
   , cacSlide [h 4 "Algebraic Data Types", adtsInPs]
   , cacSlide [h 4 "Extract data safely", matchInPs]
   , cacSlide [h 4 "Type Classes", classesInPs]
@@ -428,27 +486,16 @@ pureScripIntroSlides = [
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
 staticTypeSlides = [
-    cacSlide [
-        h 4 "How do types help us?"
-      , listAppear [
-          D.div' [
-              D.text "Type annotations are (good) documentation"
-            , listTxt ["We almost never write enough documentation!"]
-            ]
-        , D.div' [
-            D.text "Static typing make its safer (and quicker!) to change code"
-          , listTxt ["Some up-front cost", "Save time in the long run"]
-        , D.text "Static typing make us think about design"
-        ]
-      ]
-    ]
+    howTypesHelpSlide list
   , cacSlide [
       h 4 "Types as Documentation"
-    , listAppearTxt [
-        "Types are docs that don't get stale or lie"
-      , "Reality: code changes, sometimes docs don't"
-      , "Types become very recognizeable once familiar"
-      , "(Usually much faster than reading docs)"
+    , listAppear [
+        D.text "Types are docs that don't get stale or lie"
+      , D.text "Reality: code changes, sometimes docs don't"
+      , D.text "Types become very recognizeable once familiar"
+      , D.text "(Usually much faster than reading docs)"
+      , D.text "Allow for semantic documentation search: "
+        <|> link "Pursuit" "https://pursuit.purescript.org/"
       ]
     ]
   , cacSlide [
@@ -471,7 +518,7 @@ staticTypeSlides = [
         ]
       , appear_' $ D.div' [
           codePanePs wierdType
-        , listTxt "Even variable names aren't needed"
+        , listTxt ["Even variable names aren't needed"]
         ]
       ]
   , cacSlide [
@@ -528,7 +575,7 @@ fpSlides = [
   where
     scienceFpList = listAppearTxt [
         "Scientists try to understand complex processes - not create them!"
-      , "Object simulation, as possible in OO, reflects reality but is complex" 
+      , "Object simulation, as possible in OO, reflects reality but is complex"
       , "FP mitigates complexity by removing side effects"
       , "Simple does not always mean easy"
       ]
@@ -545,7 +592,10 @@ fpSlides = [
     staticFpSynergy = listAppearTxt [
         "FP adds a very important dimension to static typing: Effect"
       , "Effect is a type that enforces purity"
-      , "Both FP and Static types work to keep code and code changes less surprising"
+      , "Both FP and Static types work to keep code and code "
+        <> "changes less surprising"
+      , "Types compensate and supplement testing, purity makes testing"
+        <> "pure (non-effectful) functions simpler"
       ]
 
 workingWithFunctions :: forall a. Array (Widget HTML a)
@@ -777,7 +827,7 @@ recInPs = D.div [P.style{
 noNewtypeInPs:: forall a. Widget HTML a
 noNewtypeInPs = listAppear [
     D.text "Values of the same machine type may have different "
-      <|> italic "logical" <|> D.text " meanings" 
+      <|> italic "logical" <|> D.text " meanings"
   , D.text "Can be used for improved safety in argument passing"
   , D.div [P.style{
           "display": "flex"
@@ -810,7 +860,7 @@ newtypeInPs = listAppear [
       }] [
         D.div_ [flexGrow 1] $ D.div [pad 10] [
           codePanePsRun psNewtypeId psNewtype
-        ,   dyn $ runCodePane psNewtypeId initCmds mkCmd
+        , dyn $ runCodePane psNewtypeId initCmds mkCmd
         ]
       ]
   , D.text "Newtype has other uses as well: see instances"
@@ -821,6 +871,30 @@ newtypeInPs = listAppear [
     mkCmd fContents = {
         files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
       , command: Exec.runPsFile
+      , meta: CCRS.mypyPursMeta
+      }
+      where
+        fc0 = fromMaybe "" (head fContents)
+
+newtypeInPy :: forall a. Widget HTML a
+newtypeInPy = listAppear [
+    D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePyRun pyNewtypeId pyNewtype
+        , dyn $ runCodePane pyNewtypeId initCmds mkCmd
+        ]
+      ]
+  , listTxt ["Some runtime overhead in python"]
+  ]
+  where
+    initCmds = [spagoInit, spago "install console"]
+    mkCmd :: Array String -> CCRS.ExecFileCmd
+    mkCmd fContents = {
+        files: [Tuple "newtype.py" fc0]
+      , command: Exec.runPyAndMypyFile
       , meta: CCRS.mypyPursMeta
       }
       where
@@ -947,6 +1021,10 @@ closingSlideTable= D.table [P.style {
     , td $ selfHref $ "https://github.com/CornellCAC/mypy-purescript-talk"
     ]
   , D.tr [] [
+      td $ D.text "My page (provides a stable link to slides)"
+    , td $ selfHref $ myPageUrl
+    ]
+  , D.tr [] [
       td $ D.text "# purescript channel on "
         <|> link "https://functionalprogramming.slack.com" "FP Slack"
     , td $ link "https://fpchat-invite.herokuapp.com/" "Get an Invite"
@@ -955,7 +1033,6 @@ closingSlideTable= D.table [P.style {
       td $ D.text "Try more PureScript examples online"
     , td $ selfHref $ "http://try.purescript.org"
     ]
-
   ]
   where
     tdThProps = [P.style{
@@ -968,14 +1045,14 @@ closingSlideTable= D.table [P.style {
 selfHref :: forall a. String -> Widget HTML a
 selfHref url = link url url
 
-list :: forall a. Array (Widget HTML a) -> Widget HTML a
+list :: ArrayWidgMerge
 list items = D.ul [P.style{"text-align" : "left"}] $
   D.li_ [] <$> items
 
 listTxt :: forall a. Array String -> Widget HTML a
 listTxt = list <<< (map D.text)
 
-listAppear :: forall a. Array (Widget HTML a) -> Widget HTML a
+listAppear :: ArrayWidgMerge
 listAppear items = D.ul [P.style{"text-align" : "left"}] $
    appear_' <<< D.li_ [] <$> items
 
@@ -1040,6 +1117,9 @@ pyBadTypeSimple :: String
 pyBadTypeSimple = """def foo(xx: int) -> str:
     return xx ++ 1"""
 
+pyBadTypeSimpleId :: String
+pyBadTypeSimpleId = "badTypeSimple"
+
 pyTypeStyle1 :: String
 pyTypeStyle1 = """def foo(xx: int) -> int:
     return xx ++ 1
@@ -1055,9 +1135,6 @@ pyTypeStyle2 = """def foo(xx):        # type: (int) -> int
 
 yy = foo(3)         # type: int
 print(yy)"""
-
-pyBadTypeSimpleId :: String
-pyBadTypeSimpleId = "badTypeSimple"
 
 pyNewtype :: String
 pyNewtype = """from typing import NewType
@@ -1325,8 +1402,12 @@ instance showMaybe :: Show a => Show (Maybe a) where
 psSmartConsId :: String
 psSmartConsId = "psSmartCons"
 
+myPageUrl :: String
+myPageUrl = "https://www.cac.cornell.edu/barker/"
+
 slidesUrl :: String
-slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
+slidesUrl = "http://ccrs.cac.cornell.edu:8080/mypy-purescript/index.html"
+-- slidesUrl = "https://www.cac.cornell.edu/barker/mypy-purs-talk"
 
 pythonTypingUrl :: String
 pythonTypingUrl = "https://docs.python.org/3/library/typing.html"

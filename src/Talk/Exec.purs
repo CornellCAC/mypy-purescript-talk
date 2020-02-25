@@ -63,3 +63,8 @@ runMypyFile :: Array String -> String
 runMypyFile files = case head files of
   Just file -> "mypy " <> file
   Nothing -> missingFileCmd
+
+runPyAndMypyFile :: Array String -> String
+runPyAndMypyFile files = case head files of
+  Just file ->  "mypy " <> file <> " && " <> "python " <> file
+  Nothing -> missingFileCmd
