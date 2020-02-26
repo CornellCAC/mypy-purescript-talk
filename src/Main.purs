@@ -33,9 +33,10 @@ import Control.Alt ((<|>))
 import Control.MultiAlternative (orr)
 import Data.Array ((:), head)
 import Data.Foldable (intercalate)
+import Data.Int (floor)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Time.Duration (Milliseconds(Milliseconds))
-import Data.Tuple (Tuple(..), fst, snd)
+import Data.Tuple (Tuple(..), fst)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect (Effect)
@@ -43,16 +44,22 @@ import Talk.CCRS as CCRS
 import Talk.Exec as Exec
 import Talk.Exec (spago, spagoInit)
 import Web.DOM (Element) as DOM
+import Web.DOM.Document (getElementsByClassName) as DOM
 import Web.DOM.Element as ELE
 import Web.DOM.NonElementParentNode (getElementById) as DOM
-import Web.HTML (window) as DOM
 import Web.DOM.HTMLCollection as HTMLCollection
-import Web.HTML.HTMLDocument (toNonElementParentNode) as DOM
+import Web.HTML (window) as DOM
+import Web.HTML.HTMLDocument (toDocument, toNonElementParentNode) as DOM
+import Web.HTML.HTMLElement as HTMLEle
 import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
 
 type CtrlSignal v a = a -> Signal v a
 type ArrayWidgMerge = forall a. Array (Widget HTML a) -> Widget HTML a
+
+-- | This seems to be hardcoded (or at least a default) of Spectacle
+spectacleMaxHeight :: Number
+spectacleMaxHeight = 700.0
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -120,6 +127,7 @@ codePanePyRun codeId src = D.div [P._id codeId] [
       ] []
   ]
 
+type CodePaneCtrl = {jobIdMay :: Maybe CCRS.JobId, output :: String, maxHeight :: Int}
 -- TODO: could allow it to take an array of codeIds to support multiple
 --     : panes, possibly even on different slides: a good example would be
 --     | the newtype smart constructor example, and a separate main file to use it
@@ -127,15 +135,27 @@ runCodePane ::
      String
   -> Array String
   -> (Array String -> CCRS.ExecFileCmd)
-  -> Signal HTML (Tuple (Maybe CCRS.JobId) String)
-runCodePane codeId initCmds mkFileCmd = step (Tuple Nothing "") do
-  jobId <- liftEffect $ Exec.mkSysJobIdWithInits initCmds
-  pure $ go $ Tuple (Just jobId) ""
-  where
-    go :: CtrlSignal HTML (Tuple (Maybe CCRS.JobId) String)
-    go ctrl = step ctrl $ D.div' [
+  -> Signal HTML CodePaneCtrl
+runCodePane codeId initCmds mkFileCmd =
+  step {jobIdMay: Nothing, output: "", maxHeight: 0} do
+    jobId <- liftEffect $ Exec.mkSysJobIdWithInits initCmds
+    pure $ go {jobIdMay: Just jobId, output: "", maxHeight: 0}
+    where
+      resultDivStyle maxHeight = P.style{
+          "fontSize": "1.2rem"
+        , "overflow": "auto"
+        , "text-align": "left"
+        , "max-height": (show maxHeight) <> "px"
+        }
+      go :: CtrlSignal HTML CodePaneCtrl
+      go ctrl = step ctrl $ D.div' [
         do
-          let jobIdEf = maybe (Exec.mkSysJobIdWithInits initCmds) pure jobIdMay
+          currentSpecHeight <- liftEffect elemHeightByClass "spectacle-content"
+          let maxHeight = floor $ max 0.0 $ spectacleMaxHeight - currentSpecHeight
+          liftEffect $ log $ show maxHeight
+          -- FIXME: two problems, 1: there's more than one spectacle-content
+          -- FIXME: , 2: need to subtract (viewIdOf codeId) height
+          let jobIdEf = maybe (Exec.mkSysJobIdWithInits initCmds) pure ctrl.jobIdMay
           jobId <- liftEffect jobIdEf
           codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
           codeTxt <- liftEffect codeEf
@@ -152,12 +172,9 @@ runCodePane codeId initCmds mkFileCmd = step (Tuple Nothing "") do
               pure unit
             Nothing -> pure unit
           -- liftEffect $ log result
-          pure $ go $ Tuple (Just jobId) codeTxt
+          pure $ go {jobIdMay: Just jobId, output: codeTxt, maxHeight: ctrl.maxHeight}
         , D.div [P._id $ viewIdOf codeId] []
         ]
-      where
-        jobIdMay = fst ctrl
-        output = snd ctrl
 
 viewIdOf :: String -> String
 viewIdOf id = id <> "_view"
@@ -396,19 +413,24 @@ mypyLiteralSlide =
         codePanePyRun pyLiteralId pyLiteral
       , dyn $ runCodePane pyLiteralId [] mkCmd
       ]
-    , listAppear [ D.div' [
-        D.text "Not all values can be used, e.g.: "
-      , listAppear [
-          codeList ["float", "complex"]
-        , D.text "anything not a value"
-        , D.text "object instances"
-        , D.text "some other caveats"
-        ]
-      ]]
-    , appear_' $ list [ D.div' [
-          D.text "Not available in PureScript directly, though planned"
-        , listTxt ["Can use Symbols for Strings, or a custom typeclass"]
+    , D.div [P.style{
+        "display": "flex"
+      , "flex-direction": "row"
+      }] [
+        D.div_ [flexGrow 1] $ listAppear [ D.div' [
+          D.text "Not all values can be used, e.g.: "
+        , listAppear [
+            codeList ["float", "complex"]
+          , D.text "anything not a value"
+          , D.text "object instances"
+          , D.text "some other caveats"
+          ]
         ]]
+      , D.div_ [flexGrow 1] $ appear_' $ list [ D.div' [
+            D.text "Not available in PureScript directly, though planned"
+          , listTxt ["Can use Symbols for Strings, or a custom typeclass"]
+          ]]
+      ]
     ]
   where
     mkCmd :: Array String -> CCRS.ExecFileCmd
@@ -1414,6 +1436,17 @@ pythonTypingUrl = "https://docs.python.org/3/library/typing.html"
 
 pythonTypingLink :: forall a. Widget HTML a
 pythonTypingLink =  selfHref pythonTypingUrl
+
+elemHeightByClass :: String -> Effect Number
+elemHeightByClass eleClass = do
+  win <- DOM.window
+  doc <- DOM.document win
+  specElems <- DOM.getElementsByClassName eleClass $
+    DOM.toDocument doc
+  specEleMay <- HTMLCollection.item 0 specElems
+  case join $ HTMLEle.fromElement <$> specEleMay of
+    Nothing -> pure 0.0
+    Just hEle -> HTMLEle.offsetHeight hEle
 
 docElemById :: String -> Effect (Maybe DOM.Element)
 docElemById id = do
