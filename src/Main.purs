@@ -1,5 +1,6 @@
 module Main where
 
+--TODO: Add non-mypy equivalent to simple example 
 --TODO: protocols compared to typeclasses?
 --TODO: TCO as a benefit of statically typed fp languages
 --TODO: add something to CCRS like oneshot but without the need for view components.
@@ -139,18 +140,19 @@ runCodePane ::
 runCodePane codeId initCmds mkFileCmd =
   step {jobIdMay: Nothing, output: "", maxHeight: 0} do
     jobId <- liftEffect $ Exec.mkSysJobIdWithInits initCmds
-    pure $ go {jobIdMay: Just jobId, output: "", maxHeight: 0}
+    pure $ go {jobIdMay: Just jobId, output: "", maxHeight: 200}
     where
+      resultDivStyle :: forall a. Int -> ReactProps a
       resultDivStyle maxHeight = P.style{
           "fontSize": "1.2rem"
         , "overflow": "auto"
         , "text-align": "left"
-        , "max-height": (show maxHeight) <> "px"
+        , "max-height": "200px" -- FIXME: (show maxHeight) <> "px"
         }
       go :: CtrlSignal HTML CodePaneCtrl
       go ctrl = step ctrl $ D.div' [
         do
-          currentSpecHeight <- liftEffect elemHeightByClass "spectacle-content"
+          currentSpecHeight <- liftEffect $ elemHeightByClass "spectacle-content"
           let maxHeight = floor $ max 0.0 $ spectacleMaxHeight - currentSpecHeight
           liftEffect $ log $ show maxHeight
           -- FIXME: two problems, 1: there's more than one spectacle-content
@@ -173,7 +175,7 @@ runCodePane codeId initCmds mkFileCmd =
             Nothing -> pure unit
           -- liftEffect $ log result
           pure $ go {jobIdMay: Just jobId, output: codeTxt, maxHeight: ctrl.maxHeight}
-        , D.div [P._id $ viewIdOf codeId] []
+        , D.div [P._id $ viewIdOf codeId, resultDivStyle ctrl.maxHeight] []
         ]
 
 viewIdOf :: String -> String
@@ -270,7 +272,7 @@ mypySlides = [
           D.text "A static type checker for Python " <|> link "" "type annotations"
         , link "https://github.com/facebook/pyre-check" "pyre-check"
           <|> D.text " from Facebook is another, focused on performance"
-        , D.text $ "Typings were introduced in Python 3.5 and have been"
+        , D.text $ "Typings were introduced in Python 3.5 and have been "
           <> "expanded in each subsequent release (now at 3.8)"
         , D.text "Typings do not add any runtime overhead (usually)"
         , D.text "Spearheaded by Dropbox as their Python codebase grew"
@@ -287,12 +289,33 @@ mypySlides = [
     , appear_' $ D.span' [D.text "Much more at ", pythonTypingLink ]]
   , mypyTwoStylesSlide
   , cacSlide [
+      h 4 "Don't lie with null"
+    , h 6 "Optional to the Rescue!"
+    , codePanePy pyOptionStr
+    , code "def get_dblp_bibtex_path(url: str) -> Optional[str]:"
+    ]
+  , cacSlide [
+        h 4 "Aside: Some type systems are more honest than others"
+      , list [ D.div' [D.text "Incomplete list of offenders: "
+        , listTxt $ pure "C/C++, Java, Python (without mypy)" ]]
+      , D.div_ [] $ D.text "Tony Hoare on Null: the billion dollar mistake"
+      , D.iframe [
+          P.width "728"
+        , P.height "410"
+        -- TODO: fix start point
+        , P.src "https://www.youtube.com/embed/YYkOWzrO3xg?start=128?rel=0"
+        , P.frameBorder "0"
+        -- , P.allow "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        -- , P.allowFullscreen
+        ] []
+      ]
+  , cacSlide [
       h 4 "Ignoring type errors"
-    , listAppearTxt [
-        "Some corners of Python still problematic for mypy"
-      , "Maybe you don't have time to think about a type"
-      , "Common when using highly dynamically-typed libraries"
-      , "Introducing # type: ignore"
+    , listAppear [
+        D.text "Some corners of Python still problematic for mypy"
+      , D.text "Maybe you don't have time to think about a type"
+      , D.text "Common when using highly dynamically-typed libraries"
+      , D.text "Introducing " <|> code "# type: ignore"
       ]
     ]
   , cacSlide [
@@ -317,16 +340,27 @@ mypySlides = [
   where
     flaskIssue1 = "Cannot type Flask view functions return "
       <> "types in the natural way"
-    flaskIssue2 = "Union subtyping doesn't work with"
+    flaskIssue2 = "Union subtyping doesn't work with "
       <> "covariant type constructors Tuple and Callable"
 
 mypySimpleSlide :: forall a. Widget HTML a
-mypySimpleSlide =
-  cacSlide [
-      h 4 "A simple example of using mypy"
-    , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
-    , dyn $ runCodePane pyBadTypeSimpleId [] mkCmd
+mypySimpleSlide = cacSlide [
+    h 4 "A simple example of using mypy"
+  , D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "row"
+  }] [
+      D.div_ [flexGrow 1] $ D.div [pad 10] [
+        D.text "Normal python: no types"
+      , codePanePy pyNoTypeSimple
+      ]
+    , D.div_ [flexGrow 1] $ D.div [pad 10] [
+        D.text "With types"
+      , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
+      , dyn $ runCodePane pyBadTypeSimpleId [] mkCmd
+      ]
     ]
+  ]
   where
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -423,7 +457,8 @@ mypyLiteralSlide =
             codeList ["float", "complex"]
           , D.text "anything not a value"
           , D.text "object instances"
-          , D.text "some other caveats"
+          , link "https://www.python.org/dev/peps/pep-0586/#id25"
+            "some other caveats"
           ]
         ]]
       , D.div_ [flexGrow 1] $ appear_' $ list [ D.div' [
@@ -450,6 +485,7 @@ pureScripIntroSlides = [
         , "In short: it allows us to enforce purity checks"
         , "Compiles to somewhat readable (non-idiomatic) code"
         , "Not as quirky as mypy - wasn't done as an afer-thought"
+        , "A relatively small (i.e. non-complex) language"
         , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
         ]
     ]
@@ -517,7 +553,7 @@ staticTypeSlides = [
       , D.text "Types become very recognizeable once familiar"
       , D.text "(Usually much faster than reading docs)"
       , D.text "Allow for semantic documentation search: "
-        <|> link "Pursuit" "https://pursuit.purescript.org/"
+        <|> link "https://pursuit.purescript.org/" "Pursuit"
       ]
     ]
   , cacSlide [
@@ -525,8 +561,8 @@ staticTypeSlides = [
     , listAppearTxt [
         "When you change something ..."
       , "The compiler will tell you what broke as a result"
+      , "Won't find out from another user or reviewer"
       , "No need to run long, hand-written tests in most cases"
-      , "Or worse, find out from another user or reviewer"
       , "The stronger the type system, the fewer tests needed"
       , "(Still need some)"
       ]
@@ -544,31 +580,8 @@ staticTypeSlides = [
         ]
       ]
   , cacSlide [
-        h 4 "Some type systems are more honest than others"
-      , list [ D.div' [D.text "Incomplete list of offenders: "
-        , listTxt $ pure "C/C++, Java, Python (without mypy)" ]]
-      , D.div_ [] $ D.text "Tony Hoare on Null: the billion dollar mistake"
-      , D.iframe [
-          P.width "728"
-        , P.height "410"
-        -- TODO: fix start point
-        , P.src "https://www.youtube.com/embed/YYkOWzrO3xg?start=128?rel=0"
-        , P.frameBorder "0"
-        -- , P.allow "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-        -- , P.allowFullscreen
-        ] []
-      ]
-  , cacSlide [
-      h 4 "Don't lie with null"
-    , h 6 "Optional to the Rescue!"
-    , codePanePy pyOptionStr
-    ]
-  , cacSlide [
-      h 4 "Don't lie with null (continued)"
-      -- TODO: Maybe example in PureScript
-    ]
-  , cacSlide [
-      h 4 "From Maybe to Either"
+      h 4 "A simple ADT for Errors"
+    , h 6 "From Maybe to Either"
     , listAppear [
         D.text "What if we want more information than just None for a failure?"
       , D.span' [
@@ -579,6 +592,7 @@ staticTypeSlides = [
         , code "Maybe b ≅ Either Unit b"
         ]
       , code "data Either a b = Left a | Right b"
+      , D.text "Using Either instead of Exceptions can make code less surprising"
       , D.text "Usually Left holds an error value, but can be used in other ways"
       -- TODO: add either
       ]
@@ -616,7 +630,7 @@ fpSlides = [
       , "Effect is a type that enforces purity"
       , "Both FP and Static types work to keep code and code "
         <> "changes less surprising"
-      , "Types compensate and supplement testing, purity makes testing"
+      , "Types compensate and supplement testing, purity makes testing "
         <> "pure (non-effectful) functions simpler"
       ]
 
@@ -650,8 +664,8 @@ workingWithFunctions = [
         D.text "Wait, what's a monad? The reason FP sometimes gets ignored"
       , D.text "But we've already seen a few: " <|> code "Maybe" <|> D.text " and "
         <|> code "Effect"
-      , D.text "For now, a " <|> code "Monad"
-        <|> D.text " type wraps a computation and let's us use"
+      , D.text "A " <|> code "Monad"
+        <|> D.text " type wraps a computation and lets us use "
         <|> code "do" <|> D.text " syntax"
       , D.text "Can use " <|> code "State" <|> D.text " monad to allow isolated mutability"
       , D.text "Left side of " <|> code " <- "
@@ -674,7 +688,7 @@ workingWithFunctions = [
 endSlides :: forall a. Array (Widget HTML a)
 endSlides = [
     cacSlide [ h 4 "Another Safe Language: Rust", rustList]
-  , cacSlide [ h 4 "Another Safe Language: Coconut", coconutList] --TODO add monty python scene
+  , cacSlide [ h 4 "Honorable Mention: Coconut", coconutList] --TODO add monty python scene
   ]
   where
     rustList = listTxt [
@@ -695,8 +709,10 @@ followAlongSlide = cacSlide [
     h 2 "Follow Along"
   , listAppear [
       D.span' [D.text "Follow along at ", D.br', selfHref slidesUrl]
+    , D.text "Also linked from: " <|> selfHref cacEducation
     , D.text "Edit and run live examples from the browser "
     , D.text "To reset examples: reload page"
+    , D.text "Use left/right arrow keys to move back/forward"
     ]
   , appear [] $ pure $ D.div' [D.br', D.text "Or, try it later (from a Cornell IP)"]
   ]
@@ -781,7 +797,7 @@ funCallsInPs = D.div [P.style{
         <|> link "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Function#v:($)" "$"
         <|> D.text " to specify argument grouping"
       , code "f x y" <|> D.text " and we want " <|> code "y = g x" <|> D.text " then: "
-        <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x" 
+        <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x"
       ]
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       codePanePsRun psMulCallId psMulCall
@@ -806,7 +822,7 @@ curryInPs = D.div [P.style{
       "display": "flex"
     , "flex-direction": "column"
   }] [
-    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+    D.div_ [flexGrow 1] $ D.div [pad 10] [
         codePanePsRun psCurryId psCurry
       , dyn $ runCodePane psCurryId initCmds mkCmd
       , italic $ "\"Currying is a process "
@@ -847,13 +863,15 @@ recInPs = D.div [P.style{
         fc0 = fromMaybe "" (head fContents)
 
 noNewtypeInPs:: forall a. Widget HTML a
-noNewtypeInPs = listAppear [
-    D.text "Values of the same machine type may have different "
-      <|> italic "logical" <|> D.text " meanings"
-  , D.text "Can be used for improved safety in argument passing"
-  , D.div [P.style{
-          "display": "flex"
-        , "flex-direction": "row"
+noNewtypeInPs = D.div' [
+    listAppear [
+      D.text "Values of the same machine type may have different "
+        <|> italic "logical" <|> D.text " meanings"
+    , D.text "Can be used for improved safety in argument passing"
+    ]
+  , appear_' $  D.div [P.style{
+        "display": "flex"
+      , "flex-direction": "row"
       }] [
         D.div_ [flexGrow 1] $ D.div [pad 10] [
           codePanePsRun psNoNewtypeId psNoNewtype
@@ -888,7 +906,7 @@ newtypeInPs = listAppear [
   , D.text "Newtype has other uses as well: see instances"
   ]
   where
-    initCmds = [spagoInit, spago "install console"]
+    initCmds = [spagoInit, spago "install console newtype"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "newtype.purs" $ Exec.preludeEffectImports <> fc0]
@@ -899,17 +917,15 @@ newtypeInPs = listAppear [
         fc0 = fromMaybe "" (head fContents)
 
 newtypeInPy :: forall a. Widget HTML a
-newtypeInPy = listAppear [
-    D.div [P.style{
-          "display": "flex"
-        , "flex-direction": "row"
-      }] [
-        D.div_ [flexGrow 1] $ D.div [pad 10] [
-          codePanePyRun pyNewtypeId pyNewtype
-        , dyn $ runCodePane pyNewtypeId initCmds mkCmd
-        ]
-      ]
-  , listTxt ["Some runtime overhead in python"]
+newtypeInPy =  D.div [P.style{
+    "display": "flex"
+  , "flex-direction": "column"
+  }] [
+    D.div_ [flexGrow 1] $ D.div [pad 10] [
+      codePanePyRun pyNewtypeId pyNewtype
+    , dyn $ runCodePane pyNewtypeId initCmds mkCmd
+    ]
+  , D.text "Note: Some runtime overhead in python"
   ]
   where
     initCmds = [spagoInit, spago "install console"]
@@ -929,7 +945,7 @@ adtsInPs = listAppear [
   , D.text "Product refers to the constructor arguments"
   , code "data Maybe a = Nothing | Just a"
   , code "data Tuple a b = Tuple a b"
-  , D.text "can build up types like " <|> code "type MayTup = Maybe (Tuple a b)"
+  , D.text "Can build up types like " <|> code "type MayTup a b = Maybe (Tuple a b)"
   , D.text "This is roughly the \"algebra\""
   , D.text "Python does not have ADTs builtin, but theres a "
     <|> link "https://pypi.org/project/algebraic-data-types/" "library"
@@ -948,7 +964,7 @@ matchInPs = listAppear [
         ,   dyn $ runCodePane psMatchId initCmds mkCmd
         ]
       ]
-  , D.text "If not all constructors are covered, get:" <|> D.br'
+  , D.text "If not all constructors are covered, get error:" <|> D.br'
     <|> D.text "case expression could not be determined to cover all inputs"
   ]
   where
@@ -1043,6 +1059,10 @@ closingSlideTable= D.table [P.style {
     , td $ selfHref $ "https://github.com/CornellCAC/mypy-purescript-talk"
     ]
   , D.tr [] [
+      td $ D.text "CAC Education (provides a stable link to slides)"
+    , td $ selfHref $ cacEducation
+    ]
+  , D.tr [] [
       td $ D.text "My page (provides a stable link to slides)"
     , td $ selfHref $ myPageUrl
     ]
@@ -1130,10 +1150,17 @@ italic s = D.span_ [P.style {"fontWeight" : "italic"} ] $ D.text s
 -- -- -- -- Python code snippets -- -- -- --
 
 pyOptionStr :: String
-pyOptionStr = """if listing_path is not None:
-    bibtex_path = get_dblp_bibtex_path(listing_path)
-else:
-    return None"""
+pyOptionStr = """def _check_dblp(docmeta: DocMetadata,
+                db_override: bool = False) -> Optional[Dict]:
+# ...
+    if listing_path is not None:
+        bibtex_path = get_dblp_bibtex_path(listing_path)
+    else:
+        return None"""
+
+pyNoTypeSimple :: String
+pyNoTypeSimple = """def foo(xx):
+    return xx ++ 1"""
 
 pyBadTypeSimple :: String
 pyBadTypeSimple = """def foo(xx: int) -> str:
@@ -1154,7 +1181,6 @@ pyTypeStyle1Id = "pyTypeStyle1"
 pyTypeStyle2 :: String
 pyTypeStyle2 = """def foo(xx):        # type: (int) -> int
     return xx ++ 1
-
 yy = foo(3)         # type: int
 print(yy)"""
 
@@ -1277,7 +1303,7 @@ import Effect.Class.Console (logShow)
 """ <> mulFunPs
     <> """
 mul5 :: Number -> Number
-mul5 = mul 5
+mul5 = mul 5.0
 
 main :: Effect Unit
 main = do
@@ -1295,9 +1321,9 @@ import Prelude
 import Effect (Effect)
 import Effect.Class.Console (logShow)
 
-main :: Effect
+main :: Effect Unit
 main = do
-  logShow $ map (* 2) [0, 1, 2, 3]"""
+  logShow $ map ((*) 2) [0, 1, 2, 3]"""
 
 psCurryHOFId :: String
 psCurryHOFId = "psCurryHOF"
@@ -1320,9 +1346,9 @@ psEffectMay = """-- f1 :: a -> Maybe b
 
 maybeDfromA :: Maybe d
 maybeDfromA a = do
-  bMay <- f1 a
-  cMay <- f2 bMay
-  f3 cMay"""
+  b <- f1 a
+  c <- f2 b
+  f3 c"""
 
 
 psRecordType :: String
@@ -1336,7 +1362,7 @@ type Point2D = {x :: Number, y :: Number}
 myPoint :: Point2D
 myPoint = {x: 0.0, y: 1.5}
 
-main :: Effect
+main :: Effect Unit
 main = do
   logShow myPoint"""
 
@@ -1426,6 +1452,9 @@ psSmartConsId = "psSmartCons"
 
 myPageUrl :: String
 myPageUrl = "https://www.cac.cornell.edu/barker/"
+
+cacEducation :: String
+cacEducation = "https://www.cac.cornell.edu/education/"
 
 slidesUrl :: String
 slidesUrl = "http://ccrs.cac.cornell.edu:8080/mypy-purescript/index.html"
