@@ -1,6 +1,6 @@
 module Main where
 
---TODO: Add non-mypy equivalent to simple example 
+--TODO: Add non-mypy equivalent to simple example
 --TODO: protocols compared to typeclasses?
 --TODO: TCO as a benefit of statically typed fp languages
 --TODO: add something to CCRS like oneshot but without the need for view components.
@@ -36,14 +36,17 @@ import Data.Array ((:), head)
 import Data.Foldable (intercalate)
 import Data.Int (floor)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(Milliseconds))
 import Data.Tuple (Tuple(..), fst)
+import Data.Unfoldable as UF
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect (Effect)
 import Talk.CCRS as CCRS
 import Talk.Exec as Exec
 import Talk.Exec (spago, spagoInit)
+import Talk.Spectacle (SpecSlideId, mkCSlideId)
 import Web.DOM (Element) as DOM
 import Web.DOM.Document (getElementsByClassName) as DOM
 import Web.DOM.Element as ELE
@@ -55,12 +58,12 @@ import Web.HTML.HTMLElement as HTMLEle
 import Web.HTML.HTMLTextAreaElement as TAE
 import Web.HTML.Window (document) as DOM
 
-type CtrlSignal v a = a -> Signal v a
 type ArrayWidgMerge = forall a. Array (Widget HTML a) -> Widget HTML a
+type CtrlSignal v a = a -> Signal v a
 
 -- | This seems to be hardcoded (or at least a default) of Spectacle
-spectacleMaxHeight :: Number
-spectacleMaxHeight = 700.0
+specContentMaxHeight :: Number
+specContentMaxHeight = 700.0
 
 main :: Effect Unit
 main = runWidgetInDom "root" do
@@ -128,43 +131,42 @@ codePanePyRun codeId src = D.div [P._id codeId] [
       ] []
   ]
 
-type CodePaneCtrl = {jobIdMay :: Maybe CCRS.JobId, output :: String, maxHeight :: Int}
+type CodePaneCtrl = {jobIdMay :: Maybe CCRS.JobId, output :: String}
+type CodeInfo = {codeId:: String, slideId:: SpecSlideId}
+mkCodeInfo :: String -> SpecSlideId -> CodeInfo
+mkCodeInfo cId sId = {codeId: cId, slideId: sId}
+
 -- TODO: could allow it to take an array of codeIds to support multiple
 --     : panes, possibly even on different slides: a good example would be
 --     | the newtype smart constructor example, and a separate main file to use it
 runCodePane ::
-     String
+     CodeInfo
   -> Array String
   -> (Array String -> CCRS.ExecFileCmd)
   -> Signal HTML CodePaneCtrl
-runCodePane codeId initCmds mkFileCmd =
-  step {jobIdMay: Nothing, output: "", maxHeight: 0} do
+runCodePane cInf initCmds mkFileCmd =
+  step {jobIdMay: Nothing, output: ""} do
     jobId <- liftEffect $ Exec.mkSysJobIdWithInits initCmds
-    pure $ go {jobIdMay: Just jobId, output: "", maxHeight: 200}
+    pure $ go {jobIdMay: Just jobId, output: ""}
     where
       resultDivStyle :: forall a. Int -> ReactProps a
       resultDivStyle maxHeight = P.style{
           "fontSize": "1.2rem"
         , "overflow": "auto"
         , "text-align": "left"
-        , "max-height": "200px" -- FIXME: (show maxHeight) <> "px"
+        , "max-height": (show maxHeight) <> "px"
         }
       go :: CtrlSignal HTML CodePaneCtrl
       go ctrl = step ctrl $ D.div' [
         do
-          currentSpecHeight <- liftEffect $ elemHeightByClass "spectacle-content"
-          let maxHeight = floor $ max 0.0 $ spectacleMaxHeight - currentSpecHeight
-          liftEffect $ log $ show maxHeight
-          -- FIXME: two problems, 1: there's more than one spectacle-content
-          -- FIXME: , 2: need to subtract (viewIdOf codeId) height
           let jobIdEf = maybe (Exec.mkSysJobIdWithInits initCmds) pure ctrl.jobIdMay
           jobId <- liftEffect jobIdEf
-          codeEf <- (textAtId codeId) <$ D.button [P.onClick] [D.text "Run"]
+          codeEf <- (textAtId cInf.codeId) <$ D.button [P.onClick] [D.text "Run"]
           codeTxt <- liftEffect codeEf
           let fileCmd = mkFileCmd [codeTxt]
           let fileContents = CCRS.fileContentsFromArray fileCmd.files
           let cmd = fileCmd.command (fst <$> fileCmd.files)
-          viewEleMay <- liftEffect $ docElemById $ viewIdOf codeId
+          viewEleMay <- liftEffect $ docElemById $ viewIdOf cInf.codeId
           let viewNodeMay = ELE.toNode <$> viewEleMay
           liftEffect $ case viewNodeMay of
             Just viewNode -> do
@@ -174,8 +176,13 @@ runCodePane codeId initCmds mkFileCmd =
               pure unit
             Nothing -> pure unit
           -- liftEffect $ log result
-          pure $ go {jobIdMay: Just jobId, output: codeTxt, maxHeight: ctrl.maxHeight}
-        , D.div [P._id $ viewIdOf codeId, resultDivStyle ctrl.maxHeight] []
+          pure $ go {jobIdMay: Just jobId, output: codeTxt}
+        , do
+            specHeight <- liftEffect $ elemHeightById $ unwrap cInf.slideId
+            resHeight <- liftEffect $ elemHeightById $ viewIdOf cInf.codeId
+            maxHeight <- pure $ floor $ max 0.0 $
+              (specContentMaxHeight - specHeight) + resHeight
+            D.div [P._id $ viewIdOf cInf.codeId, resultDivStyle maxHeight] []
         ]
 
 viewIdOf :: String -> String
@@ -214,9 +221,15 @@ cacHeader = div [P.style {
       [D.text "Center for Advanced Computing"]
   ]
 
-cacSlide :: ArrayWidgMerge
-cacSlide es = slide [bgColor white] (cacHeader : es)
+cacSlide :: Maybe SpecSlideId -> ArrayWidgMerge
+cacSlide sId es = slide slideProps $ pure $
+    D.div slidePropsD $ (cacHeader : es)
+  where
+    slidePropsD = ((P._id <<< unwrap) <$> UF.fromMaybe sId)
+    slideProps = [bgColor white]
 
+cacSlide' :: ArrayWidgMerge
+cacSlide' es = cacSlide Nothing es
 
 -- Spectacle has issues with wrapping everything inside one big component
 -- So we have to create separate components for each Concur Widget
@@ -225,13 +238,13 @@ disassociate w = display [renderComponent w]
 
 slides :: forall a. Array (Widget HTML a)
 slides =
-  [ cacSlide [
+  [ cacSlide' [
       h 2 "Programming with Types and Functions"
     , h 4 "using Python and PureScript"
     , D.br', D.br', D.text "Brandon Barker"
     , D.br', D.text "brandon.barker@cornell.edu" ]
   , followAlongSlide
-  , cacSlide [
+  , cacSlide' [
       h 4 "Safer Software for Science"
     , listAppearTxt [
           "Safety tools traditionally used for mission critical projects"
@@ -247,10 +260,10 @@ slides =
   <> staticTypeSlides
   <> fpSlides
   <> endSlides
-  <> [ cacSlide [ closingSlideTable ] ]
+  <> [ cacSlide' [ closingSlideTable ] ]
 
 howTypesHelpSlide :: ArrayWidgMerge -> forall a. Widget HTML a
-howTypesHelpSlide listWidg = cacSlide [
+howTypesHelpSlide listWidg = cacSlide' [
     h 4 "How do types help us?"
   , listWidg [
       D.div' [
@@ -267,7 +280,7 @@ howTypesHelpSlide listWidg = cacSlide [
 
 mypySlides :: forall a. Array (Widget HTML a)
 mypySlides = [
-  cacSlide [ h 4 "What is mypy?",
+  cacSlide' [ h 4 "What is mypy?",
     listAppear [
           D.text "A static type checker for Python " <|> link "" "type annotations"
         , link "https://github.com/facebook/pyre-check" "pyre-check"
@@ -283,18 +296,18 @@ mypySlides = [
         ]
     ]
   , mypySimpleSlide
-  , cacSlide [
+  , cacSlide' [
       h 4 "Some common types"
     , mypyTypesTable
     , appear_' $ D.span' [D.text "Much more at ", pythonTypingLink ]]
   , mypyTwoStylesSlide
-  , cacSlide [
+  , cacSlide' [
       h 4 "Don't lie with null"
     , h 6 "Optional to the Rescue!"
     , codePanePy pyOptionStr
     , code "def get_dblp_bibtex_path(url: str) -> Optional[str]:"
     ]
-  , cacSlide [
+  , cacSlide' [
         h 4 "Aside: Some type systems are more honest than others"
       , list [ D.div' [D.text "Incomplete list of offenders: "
         , listTxt $ pure "C/C++, Java, Python (without mypy)" ]]
@@ -309,7 +322,7 @@ mypySlides = [
         -- , P.allowFullscreen
         ] []
       ]
-  , cacSlide [
+  , cacSlide' [
       h 4 "Ignoring type errors"
     , listAppear [
         D.text "Some corners of Python still problematic for mypy"
@@ -318,7 +331,7 @@ mypySlides = [
       , D.text "Introducing " <|> code "# type: ignore"
       ]
     ]
-  , cacSlide [
+  , cacSlide' [
       h 4 "Ignoring type errors (continued)"
     , appear_' $ D.div_ [] $ codePanePy pyFlask1
     , listAppear [
@@ -334,7 +347,7 @@ mypySlides = [
       ]
     , appear_' $ D.div_ [] $ codePanePy pyFlask2
     ]
-    -- , cacSlide ["Configuring mypy"] -- TODO: mypy.ini from arXiv
+    -- , cacSlide' ["Configuring mypy"] -- TODO: mypy.ini from arXiv
     , mypyLiteralSlide
   ]
   where
@@ -344,7 +357,7 @@ mypySlides = [
       <> "covariant type constructors Tuple and Callable"
 
 mypySimpleSlide :: forall a. Widget HTML a
-mypySimpleSlide = cacSlide [
+mypySimpleSlide = cacSlide (Just cSlideId) [
     h 4 "A simple example of using mypy"
   , D.div [P.style{
       "display": "flex"
@@ -357,11 +370,13 @@ mypySimpleSlide = cacSlide [
     , D.div_ [flexGrow 1] $ D.div [pad 10] [
         D.text "With types"
       , codePanePyRun pyBadTypeSimpleId pyBadTypeSimple
-      , dyn $ runCodePane pyBadTypeSimpleId [] mkCmd
+      , dyn $ runCodePane cInfo [] mkCmd
       ]
     ]
   ]
   where
+    cSlideId = mkCSlideId "mypySimple"
+    cInfo = mkCodeInfo pyBadTypeSimpleId cSlideId
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "foo.py" fc0]
@@ -419,7 +434,7 @@ mypyTypesTable = appear_' $ D.table [P.style {
     td = D.td_ tdThProps
 
 mypyTwoStylesSlide :: forall a. Widget HTML a
-mypyTwoStylesSlide = cacSlide [
+mypyTwoStylesSlide = cacSlide' [
     h 4 "Two ways to ascribe types"
   , D.div [P.style{
         "display": "flex"
@@ -434,9 +449,10 @@ mypyTwoStylesSlide = cacSlide [
     ]
   ]
 
+--FIXME: this slide takes up too much space
 mypyLiteralSlide :: forall a. Widget HTML a
 mypyLiteralSlide =
-  cacSlide [
+  cacSlide (Just cSlideId) [
       h 4 "Literal types in Python"
     , listAppear [
         D.text "Sometimes called " <|> italic "singleton types"
@@ -445,7 +461,7 @@ mypyLiteralSlide =
       ]
     , appear_' $ D.div' [
         codePanePyRun pyLiteralId pyLiteral
-      , dyn $ runCodePane pyLiteralId [] mkCmd
+      , dyn $ runCodePane cInfo [] mkCmd
       ]
     , D.div [P.style{
         "display": "flex"
@@ -468,6 +484,8 @@ mypyLiteralSlide =
       ]
     ]
   where
+    cSlideId = mkCSlideId "mypyLiteral"
+    cInfo = mkCodeInfo pyLiteralId cSlideId
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "literal.py" fc0]
@@ -479,7 +497,7 @@ mypyLiteralSlide =
 
 pureScripIntroSlides :: forall a. Array (Widget HTML a)
 pureScripIntroSlides = [
-    cacSlide [ h 4 "Why PureScript?",
+    cacSlide' [ h 4 "Why PureScript?",
       listAppearTxt [
           "We'll have to cover some ground first..."
         , "In short: it allows us to enforce purity checks"
@@ -489,7 +507,7 @@ pureScripIntroSlides = [
         , "Still, for mid-sized or larger projects, mypy is a huge benefit!"
         ]
     ]
-  , cacSlide [ h 4 "PureScript's Language Family",
+  , cacSlide' [ h 4 "PureScript's Language Family",
       D.text "Much like C++, Java, and Python are similar, PureScript is similar to:"
     , listAppear [ D.div' [ D.text "Haskell - Common ancestor of this family"
         , listTxt [
@@ -508,7 +526,7 @@ pureScripIntroSlides = [
       , D.text "PureScript aims for simplicity and primarily targets JavaScript"
       ]
     ]
-  , cacSlide [ h 4 "What can I do with PureScript?",
+  , cacSlide' [ h 4 "What can I do with PureScript?",
       listAppear [
           D.text "The PureScript ecosystem primarily targets JavaScript"
         , D.text "Generates efficient JavaScript code for the Browser"
@@ -530,22 +548,22 @@ pureScripIntroSlides = [
           ]
         ]
     ]
-  , cacSlide [h 4 "PureScript functions", funsInPs]
-  , cacSlide [h 4 "PureScript function calls", funCallsInPs]
-  , cacSlide [h 4 "Partially supplied parameters (Currying)", curryInPs]
-  , cacSlide [h 4 "Record types and type aliases", recInPs]
-  , cacSlide [h 4 "Newtypes: why we need them", noNewtypeInPs]
-  , cacSlide [h 4 "Newtypes", newtypeInPs]
-  , cacSlide [h 4 "NewTypes in mypy", newtypeInPy]
-  , cacSlide [h 4 "Algebraic Data Types", adtsInPs]
-  , cacSlide [h 4 "Extract data safely", matchInPs]
-  , cacSlide [h 4 "Type Classes", classesInPs]
+  , funsInPs
+  , funCallsInPs
+  , curryInPs
+  , recInPs
+  , noNewtypeInPs
+  , newtypeInPs
+  , newtypeInPy
+  , cacSlide' [h 4 "Algebraic Data Types", adtsInPs]
+  , matchInPs
+  , cacSlide' [h 4 "Type Classes", classesInPs]
   ]
 
 staticTypeSlides :: forall a. Array (Widget HTML a)
 staticTypeSlides = [
     howTypesHelpSlide list
-  , cacSlide [
+  , cacSlide' [
       h 4 "Types as Documentation"
     , listAppear [
         D.text "Types are docs that don't get stale or lie"
@@ -556,7 +574,7 @@ staticTypeSlides = [
         <|> link "https://pursuit.purescript.org/" "Pursuit"
       ]
     ]
-  , cacSlide [
+  , cacSlide' [
       h 4 "Types Enable Confident Refactoring"
     , listAppearTxt [
         "When you change something ..."
@@ -567,7 +585,7 @@ staticTypeSlides = [
       , "(Still need some)"
       ]
     ]
-  , cacSlide [
+  , cacSlide' [
         h 4 "Types Guide Design"
       , listAppearTxt [
           "ADTs and allow us to combine and shape our data models"
@@ -579,7 +597,7 @@ staticTypeSlides = [
         , listTxt ["Even variable names aren't needed"]
         ]
       ]
-  , cacSlide [
+  , cacSlide' [
       h 4 "A simple ADT for Errors"
     , h 6 "From Maybe to Either"
     , listAppear [
@@ -601,12 +619,12 @@ staticTypeSlides = [
 
 fpSlides :: forall a. Array (Widget HTML a)
 fpSlides = [
-    cacSlide [ h 4 "Safer Software for Science and FP", scienceFpList]
-  , cacSlide [ h 4 "What's FP? Well, what's an effect?", effList]
+    cacSlide' [ h 4 "Safer Software for Science and FP", scienceFpList]
+  , cacSlide' [ h 4 "What's FP? Well, what's an effect?", effList]
   ]
   <> workingWithFunctions
   <> [ whatIsFP, pureVsImpure1
-  , cacSlide [ h 4 "The Synergy of FP and Types", staticFpSynergy ]
+  , cacSlide' [ h 4 "The Synergy of FP and Types", staticFpSynergy ]
   ]
   where
     scienceFpList = listAppearTxt [
@@ -636,14 +654,14 @@ fpSlides = [
 
 workingWithFunctions :: forall a. Array (Widget HTML a)
 workingWithFunctions = [
-    cacSlide [ h 5 $ getWorkDone <> ": HOFs", h 6 "(Higher Order Functions)"
+    cacSlide' [ h 5 $ getWorkDone <> ": HOFs", h 6 "(Higher Order Functions)"
       , listAppear [
           D.text "HOFs take other functions as arguments"
         , D.text "When functions are \"first class\", HOF is just a function"
         , D.span' [ D.text "Most common example: ", code "map" ]
         ]
       ]
-  , cacSlide [
+  , cacSlide' [
       h 5 $ getWorkDone <> ": loops"
     , listAppear [
         D.text "Use map HOF to apply a function to a collection of data"
@@ -655,8 +673,8 @@ workingWithFunctions = [
       ]
     , curryHOFInPs
     ]
-  , cacSlide [h 4 "Newtypes: Smart Constructors", smartConsInPs]
-  , cacSlide [ h 5 $ getWorkDone <> ": Monads", monadList, doNotation ]
+  , smartConsInPs
+  , cacSlide' [ h 5 $ getWorkDone <> ": Monads", monadList, doNotation ]
   ]
   where
     getWorkDone = "Getting Work Done with Functions"
@@ -684,11 +702,44 @@ workingWithFunctions = [
         , codePanePs psEffectMay
         ]
       ]
+    curryHOFInPs = cacSlide (Just cSlideId) [
+        h 5 $ getWorkDone <> ": loops"
+      , listAppear [
+          D.text "Use map HOF to apply a function to a collection of data"
+        , D.span' [ D.text "map :: "
+          , link
+            "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Functor#v:map"
+            "(a -> b) -> f a -> f b"
+          ]
+        ]
+      , curryHOFCodePane
+      ]
+      where
+        curryHOFCodePane = D.div [P.style{
+            "display": "flex"
+          , "flex-direction": "column"
+        }] [
+          appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+              codePanePsRun psCurryHOFId psCurryHOF
+            , dyn $ runCodePane cInfo initCmds mkCmd
+            ]
+        ]
+        cSlideId = mkCSlideId "psCurryHOF"
+        cInfo = mkCodeInfo psCurryHOFId cSlideId
+        initCmds = [spagoInit, spago "install console"]
+        mkCmd :: Array String -> CCRS.ExecFileCmd
+        mkCmd fContents = {
+            files: [Tuple "curryHOF.purs" fc0]
+          , command: Exec.runPsFile
+          , meta: CCRS.mypyPursMeta
+          }
+          where
+            fc0 = fromMaybe "" (head fContents)
 
 endSlides :: forall a. Array (Widget HTML a)
 endSlides = [
-    cacSlide [ h 4 "Another Safe Language: Rust", rustList]
-  , cacSlide [ h 4 "Honorable Mention: Coconut", coconutList] --TODO add monty python scene
+    cacSlide' [ h 4 "Another Safe Language: Rust", rustList]
+  , cacSlide' [ h 4 "Honorable Mention: Coconut", coconutList] --TODO add monty python scene
   ]
   where
     rustList = listTxt [
@@ -705,7 +756,7 @@ endSlides = [
     ] -- TODO
 
 followAlongSlide :: forall a. Widget HTML a
-followAlongSlide = cacSlide [
+followAlongSlide = cacSlide' [
     h 2 "Follow Along"
   , listAppear [
       D.span' [D.text "Follow along at ", D.br', selfHref slidesUrl]
@@ -718,7 +769,7 @@ followAlongSlide = cacSlide [
   ]
 
 whatIsFP :: forall a. Widget HTML a
-whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList]
+whatIsFP = cacSlide' [ h 4 "Now: What is Functional Programming?", fpList]
   where
     fpList = listAppearTxt [
         "Pure FP and FP should mean the same"
@@ -730,7 +781,7 @@ whatIsFP = cacSlide [ h 4 "Now: What is Functional Programming?", fpList]
       ]
 
 pureVsImpure1 :: forall a. Widget HTML a
-pureVsImpure1 = cacSlide [h 4 "Pure vs Impure", pureVsImpurePy]
+pureVsImpure1 = cacSlide' [h 4 "Pure vs Impure", pureVsImpurePy]
 
 pureVsImpurePy :: forall a. Widget HTML a
 pureVsImpurePy = D.div [P.style{
@@ -740,15 +791,18 @@ pureVsImpurePy = D.div [P.style{
     appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
         h 6 "Pure"
       , codePanePyRun pyPureId pyPure
-      , dyn $ runCodePane pyPureId [] mkCmd
+      , dyn $ runCodePane cInfoPure [] mkCmd
       ]
   , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
       h 6 "Not Pure"
     , codePanePyRun pyImpureId pyImpure
-    , dyn $ runCodePane pyImpureId [] mkCmd
+    , dyn $ runCodePane cInfoImpure [] mkCmd
     ]
   ]
   where
+    cSlideId = mkCSlideId "pureVsImpure"
+    cInfoPure = mkCodeInfo pyPureId cSlideId
+    cInfoImpure = mkCodeInfo pyImpureId cSlideId
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "foo.py" fc0]
@@ -759,22 +813,27 @@ pureVsImpurePy = D.div [P.style{
         fc0 = fromMaybe "" (head fContents)
 
 funsInPs :: forall a. Widget HTML a
-funsInPs = D.div [P.style{
+funsInPs = cacSlide (Just cSlideId) [
+    h 4 "PureScript functions"
+  , D.div [P.style{
       "display": "flex"
     , "flex-direction": "column"
-  }] [
-    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-        h 6 "Function syntax"
-      , codePanePs psFunction
+    }] [
+      appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+          h 6 "Function syntax"
+        , codePanePs psFunction
+        ]
+    , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        h 6 "Simple example: double"
+      , codePanePsRun psDoubleId psDouble
+      , dyn $ runCodePane cInfo [spagoInit] mkCmd
+      , italic "Note: need 2.0 (float) and not 2 (Int)"
       ]
-  , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-      h 6 "Simple example: double"
-    , codePanePsRun psDoubleId psDouble
-    , dyn $ runCodePane psDoubleId [spagoInit] mkCmd
-    , italic "Note: need 2.0 (float) and not 2 (Int)"
     ]
   ]
   where
+    cSlideId = mkCSlideId "psFunctions"
+    cInfo = mkCodeInfo psDoubleId cSlideId
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "double.purs" fc0]
@@ -785,26 +844,31 @@ funsInPs = D.div [P.style{
         fc0 = fromMaybe "" (head fContents)
 
 funCallsInPs :: forall a. Widget HTML a
-funCallsInPs = D.div [P.style{
+funCallsInPs = cacSlide (Just cSlideId) [
+    h 4 "PureScript function calls"
+  , D.div [P.style{
       "display": "flex"
     , "flex-direction": "column"
-  }] [
-    listAppear [
-        D.text "Traditional function call syntax is like: " <|> code "f(x,y)"
-      , D.text "In PureScript, Haskell, etc: " <|> code "f x y"
-        <|> D.text " or " <|> code "f (x) (y)"
-      , D.text "Nested calls can use () or "
-        <|> link "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Function#v:($)" "$"
-        <|> D.text " to specify argument grouping"
-      , code "f x y" <|> D.text " and we want " <|> code "y = g x" <|> D.text " then: "
-        <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x"
+    }] [
+      listAppear [
+          D.text "Traditional function call syntax is like: " <|> code "f(x,y)"
+        , D.text "In PureScript, Haskell, etc: " <|> code "f x y"
+          <|> D.text " or " <|> code "f (x) (y)"
+        , D.text "Nested calls can use () or "
+          <|> link "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Function#v:($)" "$"
+          <|> D.text " to specify argument grouping"
+        , code "f x y" <|> D.text " and we want " <|> code "y = g x" <|> D.text " then: "
+          <|> code "f x (g x)" <|> D.text " or " <|> code "f x $ g x"
+        ]
+    , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+        codePanePsRun psMulCallId psMulCall
+      , dyn $ runCodePane cInfo initCmds mkCmd
       ]
-  , appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-      codePanePsRun psMulCallId psMulCall
-    , dyn $ runCodePane psMulCallId initCmds mkCmd
     ]
   ]
   where
+    cSlideId = mkCSlideId "psFunctionCalls"
+    cInfo = mkCodeInfo psMulCallId cSlideId
     initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -818,19 +882,24 @@ funCallsInPs = D.div [P.style{
 
 
 curryInPs :: forall a. Widget HTML a
-curryInPs = D.div [P.style{
+curryInPs = cacSlide (Just cSlideId) [
+    h 4 "Partially supplied parameters (Currying)"
+  , D.div [P.style{
       "display": "flex"
     , "flex-direction": "column"
-  }] [
-    D.div_ [flexGrow 1] $ D.div [pad 10] [
-        codePanePsRun psCurryId psCurry
-      , dyn $ runCodePane psCurryId initCmds mkCmd
-      , italic $ "\"Currying is a process "
-        <> "in which we can transform a function with multiple "
-        <> "arguments into a sequence of nested functions. \""
-      ]
+    }] [
+      D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psCurryId psCurry
+        , dyn $ runCodePane cInfo initCmds mkCmd
+        , italic $ "\"Currying is a process "
+          <> "in which we can transform a function with multiple "
+          <> "arguments into a sequence of nested functions. \""
+        ]
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psCurry"
+    cInfo = mkCodeInfo psCurryId cSlideId
     initCmds = [spagoInit, spago "install console newtype"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -842,16 +911,21 @@ curryInPs = D.div [P.style{
         fc0 = fromMaybe "" (head fContents)
 
 recInPs :: forall a. Widget HTML a
-recInPs = D.div [P.style{
+recInPs = cacSlide (Just cSlideId) [
+    h 4 "Record types and type aliases"
+  , D.div [P.style{
       "display": "flex"
     , "flex-direction": "column"
-  }] [
-    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-        codePanePsRun psRecordTypeId psRecordType
-      , dyn $ runCodePane psRecordTypeId initCmds mkCmd
-      ]
+    }] [
+      appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
+          codePanePsRun psRecordTypeId psRecordType
+        , dyn $ runCodePane cInfo initCmds mkCmd
+        ]
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psRecordType"
+    cInfo = mkCodeInfo psRecordTypeId cSlideId
     initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -862,24 +936,29 @@ recInPs = D.div [P.style{
       where
         fc0 = fromMaybe "" (head fContents)
 
-noNewtypeInPs:: forall a. Widget HTML a
-noNewtypeInPs = D.div' [
-    listAppear [
-      D.text "Values of the same machine type may have different "
-        <|> italic "logical" <|> D.text " meanings"
-    , D.text "Can be used for improved safety in argument passing"
-    ]
-  , appear_' $  D.div [P.style{
-        "display": "flex"
-      , "flex-direction": "row"
-      }] [
-        D.div_ [flexGrow 1] $ D.div [pad 10] [
-          codePanePsRun psNoNewtypeId psNoNewtype
-        ,   dyn $ runCodePane psNoNewtypeId initCmds mkCmd
-        ]
+noNewtypeInPs :: forall a. Widget HTML a
+noNewtypeInPs = cacSlide (Just cSlideId) [
+    h 4 "Newtypes: why we need them"
+  , D.div' [
+      listAppear [
+        D.text "Values of the same machine type may have different "
+          <|> italic "logical" <|> D.text " meanings"
+      , D.text "Can be used for improved safety in argument passing"
       ]
+    , appear_' $  D.div [P.style{
+          "display": "flex"
+        , "flex-direction": "row"
+        }] [
+          D.div_ [flexGrow 1] $ D.div [pad 10] [
+            codePanePsRun psNoNewtypeId psNoNewtype
+          ,   dyn $ runCodePane cInfo initCmds mkCmd
+          ]
+        ]
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psNoNewtypes"
+    cInfo = mkCodeInfo psNoNewtypeId cSlideId
     initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -892,20 +971,25 @@ noNewtypeInPs = D.div' [
 
 
 newtypeInPs :: forall a. Widget HTML a
-newtypeInPs = listAppear [
-    D.text "Not an alias, but a static wrapper (no runtime overhead)"
-  , D.div [P.style{
-          "display": "flex"
-        , "flex-direction": "row"
-      }] [
-        D.div_ [flexGrow 1] $ D.div [pad 10] [
-          codePanePsRun psNewtypeId psNewtype
-        , dyn $ runCodePane psNewtypeId initCmds mkCmd
+newtypeInPs = cacSlide (Just cSlideId) [
+    h 4 "Newtypes"
+  , listAppear [
+      D.text "Not an alias, but a static wrapper (no runtime overhead)"
+    , D.div [P.style{
+            "display": "flex"
+          , "flex-direction": "row"
+        }] [
+          D.div_ [flexGrow 1] $ D.div [pad 10] [
+            codePanePsRun psNewtypeId psNewtype
+          , dyn $ runCodePane cInfo initCmds mkCmd
+          ]
         ]
-      ]
-  , D.text "Newtype has other uses as well: see instances"
+    , D.text "Newtype has other uses as well: see instances"
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psNewtypes"
+    cInfo = mkCodeInfo psNewtypeId cSlideId
     initCmds = [spagoInit, spago "install console newtype"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -917,17 +1001,22 @@ newtypeInPs = listAppear [
         fc0 = fromMaybe "" (head fContents)
 
 newtypeInPy :: forall a. Widget HTML a
-newtypeInPy =  D.div [P.style{
-    "display": "flex"
-  , "flex-direction": "column"
-  }] [
-    D.div_ [flexGrow 1] $ D.div [pad 10] [
-      codePanePyRun pyNewtypeId pyNewtype
-    , dyn $ runCodePane pyNewtypeId initCmds mkCmd
+newtypeInPy = cacSlide (Just cSlideId) [
+    h 4 "NewTypes in mypy"
+  , D.div [P.style{
+      "display": "flex"
+    , "flex-direction": "column"
+    }] [
+      D.div_ [flexGrow 1] $ D.div [pad 10] [
+        codePanePyRun pyNewtypeId pyNewtype
+      , dyn $ runCodePane cInfo initCmds mkCmd
+      ]
+    , D.text "Note: Some runtime overhead in python"
     ]
-  , D.text "Note: Some runtime overhead in python"
   ]
   where
+    cSlideId = mkCSlideId "pyNewtypes"
+    cInfo = mkCodeInfo pyNewtypeId cSlideId
     initCmds = [spagoInit, spago "install console"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -953,21 +1042,26 @@ adtsInPs = listAppear [
   ]
 
 matchInPs :: forall a. Widget HTML a
-matchInPs = listAppear [
-    code "case" <|> D.text " allows us to extract data from ADT values"
-  , D.div [P.style{
-          "display": "flex"
-        , "flex-direction": "row"
-      }] [
-        D.div_ [flexGrow 1] $ D.div [pad 10] [
-          codePanePsRun psMatchId psMatch
-        ,   dyn $ runCodePane psMatchId initCmds mkCmd
+matchInPs = cacSlide (Just cSlideId) [
+    h 4 "Extract data safely"
+  , listAppear [
+      code "case" <|> D.text " allows us to extract data from ADT values"
+    , D.div [P.style{
+            "display": "flex"
+          , "flex-direction": "row"
+        }] [
+          D.div_ [flexGrow 1] $ D.div [pad 10] [
+            codePanePsRun psMatchId psMatch
+          ,   dyn $ runCodePane cInfo initCmds mkCmd
+          ]
         ]
-      ]
-  , D.text "If not all constructors are covered, get error:" <|> D.br'
-    <|> D.text "case expression could not be determined to cover all inputs"
+    , D.text "If not all constructors are covered, get error:" <|> D.br'
+      <|> D.text "case expression could not be determined to cover all inputs"
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psPatternMatch"
+    cInfo = mkCodeInfo psMatchId cSlideId
     initCmds = [spagoInit, spago "install console maybe"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
@@ -990,52 +1084,36 @@ classesInPs = listAppear [
   ]
 
 smartConsInPs:: forall a. Widget HTML a
-smartConsInPs = listAppear [
-    D.text "Avoid erroneous value construction by only exporting a "
-    <|> italic "smart constructor and not "
-    <|> code "User" <|> D.text " constructor"
-  , D.text "Explicit exports: Only " <|> code "parseUser" <|> D.text " and "
-      <|> code "User" <|> D.text " type visible outside"
-  , D.div [P.style{
-          "display": "flex"
-        , "flex-direction": "row"
-      }] [
-        D.div_ [flexGrow 1] $ D.div [pad 10] [
-          codePanePsRun psSmartConsId psSmartCons
-        ,   dyn $ runCodePane psSmartConsId initCmds mkCmd
+smartConsInPs = cacSlide (Just cSlideId) [
+    h 4 "Newtypes: Smart Constructors"
+  , listAppear [
+      D.text "Avoid erroneous value construction by only exporting a "
+      <|> italic "smart constructor and not "
+      <|> code "User" <|> D.text " constructor"
+    , D.text "Explicit exports: Only " <|> code "parseUser" <|> D.text " and "
+        <|> code "User" <|> D.text " type visible outside"
+    , D.div [P.style{
+            "display": "flex"
+          , "flex-direction": "row"
+        }] [
+          D.div_ [flexGrow 1] $ D.div [pad 10] [
+            codePanePsRun psSmartConsId psSmartCons
+          ,   dyn $ runCodePane cInfo initCmds mkCmd
+          ]
         ]
-      ]
-  , D.text "Smart constructor " <|> code "parseUser"
-    <|> D.text " is just a simple function"
-  , D.text "Note: there is runtime overhead in this smart constructor"
+    , D.text "Smart constructor " <|> code "parseUser"
+      <|> D.text " is just a simple function"
+    , D.text "Note: there is runtime overhead in this smart constructor"
+    ]
   ]
   where
+    cSlideId = mkCSlideId "psSmartConstructor"
+    cInfo = mkCodeInfo psSmartConsId cSlideId
     initCmds = [spagoInit, spago "install strings unicode"]
     mkCmd :: Array String -> CCRS.ExecFileCmd
     mkCmd fContents = {
         files: [Tuple "smartCons.purs" fc0]
       , command: Exec.compilePsFile
-      , meta: CCRS.mypyPursMeta
-      }
-      where
-        fc0 = fromMaybe "" (head fContents)
-
-curryHOFInPs :: forall a. Widget HTML a
-curryHOFInPs = D.div [P.style{
-      "display": "flex"
-    , "flex-direction": "column"
-  }] [
-    appear_' $ D.div_ [flexGrow 1] $ D.div [pad 10] [
-        codePanePsRun psCurryHOFId psCurryHOF
-      , dyn $ runCodePane psCurryHOFId initCmds mkCmd
-      ]
-  ]
-  where
-    initCmds = [spagoInit, spago "install console"]
-    mkCmd :: Array String -> CCRS.ExecFileCmd
-    mkCmd fContents = {
-        files: [Tuple "curryHOF.purs" fc0]
-      , command: Exec.runPsFile
       , meta: CCRS.mypyPursMeta
       }
       where
@@ -1470,11 +1548,18 @@ elemHeightByClass :: String -> Effect Number
 elemHeightByClass eleClass = do
   win <- DOM.window
   doc <- DOM.document win
-  specElems <- DOM.getElementsByClassName eleClass $
+  elems <- DOM.getElementsByClassName eleClass $
     DOM.toDocument doc
-  specEleMay <- HTMLCollection.item 0 specElems
-  case join $ HTMLEle.fromElement <$> specEleMay of
-    Nothing -> pure 0.0
+  eleMay <- HTMLCollection.item 0 elems
+  case join $ HTMLEle.fromElement <$> eleMay of
+    Nothing -> pure (-1.0)
+    Just hEle -> HTMLEle.offsetHeight hEle
+
+elemHeightById :: String -> Effect Number
+elemHeightById eId = do
+  eleMay <- docElemById eId
+  case join $ HTMLEle.fromElement <$> eleMay of
+    Nothing -> pure (-1.0)
     Just hEle -> HTMLEle.offsetHeight hEle
 
 docElemById :: String -> Effect (Maybe DOM.Element)
