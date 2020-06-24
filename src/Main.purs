@@ -661,18 +661,7 @@ workingWithFunctions = [
         , D.span' [ D.text "Most common example: ", code "map" ]
         ]
       ]
-  , cacSlide' [
-      h 5 $ getWorkDone <> ": loops"
-    , listAppear [
-        D.text "Use map HOF to apply a function to a collection of data"
-      , D.span' [ D.text "map :: "
-        , link
-          "https://pursuit.purescript.org/packages/purescript-prelude/docs/Data.Functor#v:map"
-          "(a -> b) -> f a -> f b"
-        ]
-      ]
-    , curryHOFInPs
-    ]
+  , curryHOFInPs
   , smartConsInPs
   , cacSlide' [ h 5 $ getWorkDone <> ": Monads", monadList, doNotation ]
   ]
