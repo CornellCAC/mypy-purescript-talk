@@ -49,7 +49,9 @@ spago :: String -> String
 spago scmd = "spago -C " <> scmd
 
 spagoInit :: String
-spagoInit = spago "init --force"
+--TODO: see https://github.com/purescript/spago/issues/657
+--spagoInit = spago "init --force"
+spagoInit = "curl -s http://ccrs.cac.cornell.edu:8080/mypy-purescript/images/PureScriptInit.tar.bz2 | tar -xj"
 
 -- -- -- mypy or python related commands below -- -- --
 

@@ -588,7 +588,7 @@ staticTypeSlides = [
   , cacSlide' [
         h 4 "Types Guide Design"
       , listAppearTxt [
-          "ADTs and allow us to combine and shape our data models"
+          "ADTs allow us to combine and shape our data models"
         , "Type Classes allow us to organize and re-use them"
         , "In pure languages, no difficult-to-track global mutations"
         ]
@@ -1038,7 +1038,8 @@ adtsInPs = listAppear [
   , D.text "This is roughly the \"algebra\""
   , D.text "Python does not have ADTs builtin, but theres a "
     <|> link "https://pypi.org/project/algebraic-data-types/" "library"
-  , D.text "Unlike newtypes, data types do have runtime overhead"
+  , D.text $ "Unlike newtypes, data types do have runtime overhead,"
+    <> "similar to OOP objects"
   ]
 
 matchInPs :: forall a. Widget HTML a
