@@ -28,7 +28,7 @@
     "rimraf": "^3.0.2"
   },
   "dependencies": {
-    "react": "^16.13.1",
+    "react": "^16.14.0",
     "react-dom": "^16.13.1",
     "spectacle": "^5.7.0",
     "spectacle-code-slide": "^0.5.2"
